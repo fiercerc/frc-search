@@ -175,6 +175,8 @@ def to_row(p, cat_paths, links):
         'extended_description': ' '.join(str(pick(p, n)) for n in DESC_FIELDS if pick(p, n)),
         'free_shipping': '1' if truthy(pick(p, 'FreeShipping', default=0)) else '0',
         'date_created': str(pick(p, 'DateCreated'))[:10],
+        'review_avg': pick(p, 'ReviewAverage', default=0),
+        'review_count': pick(p, 'ReviewCount', default=0),
     }
 
 

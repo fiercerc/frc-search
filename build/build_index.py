@@ -170,6 +170,11 @@ def build(rows):
         d = date_int(r.get('date_created'))
         if d:
             item['d'] = d
+        rc = int(num(r.get('review_count')))
+        ra = num(r.get('review_avg'))
+        if rc > 0 and 0 < ra <= 5:
+            item['ra'] = round(ra, 1)
+            item['rn'] = rc
         items.append(item)
 
     return {

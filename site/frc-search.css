@@ -409,3 +409,12 @@ html.frcs-lock [id^="___ratingbadge"], html.frcs-lock a[href*="frcs=off"] { disp
 .frcs-go{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:10px 12px;background:var(--frcs-navy);color:#fff!important;font-weight:700;font-size:14px;text-decoration:none!important;border:0}
 .frcs-go svg{width:18px;height:18px;flex:none}
 .frcs-go:hover,.frcs-go:focus{background:var(--frcs-navy-dark)}
+
+/* Review stars */
+.frcs-stars{display:inline-flex;align-items:center;gap:5px;line-height:1;color:var(--frcs-sub);white-space:nowrap}
+.frcs-stars-bg{position:relative;display:inline-block;color:#d3d8e0;font-size:14px;letter-spacing:1px}
+.frcs-stars-fg{position:absolute;left:0;top:0;overflow:hidden;white-space:nowrap;color:#f2a900}
+.frcs-stars-n{font-size:12px}
+.frcs-card-stars{display:flex;min-height:18px;margin:2px 0 6px}
+.frcs-row-stars .frcs-stars-bg{font-size:12px}
+.frcs-row-stars .frcs-stars-n{font-size:11px}

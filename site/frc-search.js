@@ -805,6 +805,7 @@
       '<span class="frcs-row-meta">' +
       (it.s ? '<span class="frcs-sku">' + esc(it.s) + '</span>' : '') +
       (it.b != null && engine.brands[it.b] ? '<span class="frcs-brand">' + esc(engine.brands[it.b]) + '</span>' : '') +
+      starsHtml(it, 'frcs-row-stars') +
       stockHtml(it, 'frcs-stock') +
       '</span></span>' +
       priceHtml(it, 'frcs-row-price') +
@@ -1175,6 +1176,16 @@
     return a;
   }
 
+  // Review stars from the store's product reviews. Cards always keep the row so prices and buttons stay level.
+  function starsHtml(it, cls) {
+    if (!it.rn) return cls === 'frcs-card-stars' ? '<div class="frcs-stars frcs-card-stars is-empty"></div>' : '';
+    var pct = Math.max(0, Math.min(100, (it.ra / 5) * 100));
+    var label = 'Rated ' + it.ra + ' out of 5 from ' + it.rn + (it.rn === 1 ? ' review' : ' reviews');
+    return '<span class="frcs-stars ' + cls + '" role="img" aria-label="' + label + '" title="' + label + '">' +
+      '<span class="frcs-stars-bg" aria-hidden="true">\u2605\u2605\u2605\u2605\u2605<span class="frcs-stars-fg" style="width:' + pct.toFixed(0) + '%">\u2605\u2605\u2605\u2605\u2605</span></span>' +
+      '<span class="frcs-stars-n" aria-hidden="true">' + (Math.round(it.ra * 10) / 10).toFixed(1) + ' (' + it.rn + ')</span></span>';
+  }
+
   function cardHtml(it, ms) {
     var img = bigImgUrl(it);
     return '<article class="frcs-card' + (it.q > 0 ? '' : ' is-out') + '" data-addcart-callback="FRCS_added">' +
@@ -1185,6 +1196,7 @@
       '<div class="frcs-card-body">' +
       '<a class="frcs-card-name" href="' + esc(productUrl(it)) + '" data-pid="' + it._i + '">' + highlight(it.n, ms) + '</a>' +
       (it.s ? '<div class="frcs-card-sku">Part #: ' + esc(it.s) + '</div>' : '') +
+      starsHtml(it, 'frcs-card-stars') +
       priceHtml(it, 'frcs-card-price') +
       stockHtml(it, 'frcs-card-stock') +
       '<button type="button" class="frcs-cart" data-cart="' + it._i + '" aria-label="Add ' + esc(it.n) + ' to cart">' +
