@@ -1,0 +1,68 @@
+name: Update search
+
+on:
+  # Every night at about 3:15 AM Central.
+  schedule:
+    - cron: '15 8 * * *'
+  # The "Run workflow" button (your "Run now").
+  workflow_dispatch:
+  # Any change to the search code publishes right away.
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: update-search
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Pull products from Shift4Shop
+        env:
+          S4S_SECURE_URL: ${{ secrets.S4S_SECURE_URL }}
+          S4S_PRIVATE_KEY: ${{ secrets.S4S_PRIVATE_KEY }}
+          S4S_TOKEN: ${{ secrets.S4S_TOKEN }}
+        run: |
+          if [ -n "$S4S_PRIVATE_KEY" ] && [ -n "$S4S_TOKEN" ] && [ -n "$S4S_SECURE_URL" ]; then
+            python build/fetch_products.py site/frc-index.js
+          else
+            echo "Shift4Shop keys not set yet - publishing the saved product list."
+            cp data/frc-index.js site/frc-index.js
+          fi
+
+      - name: Check the product list before publishing
+        run: |
+          node test/engine.test.js
+          node test/verify_index.js site/frc-index.js
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
