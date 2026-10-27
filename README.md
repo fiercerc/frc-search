@@ -25,4 +25,5 @@ If the job ever fails, the last good version stays live. Nothing breaks on the s
 ## Shift4Shop keys
 
 Stored as GitHub secrets (Settings → Secrets and variables → Actions), never in the code:
-`S4S_SECURE_URL`, `S4S_PRIVATE_KEY`, `S4S_TOKEN`.
+`S4S_PRIVATE_KEY` (Developer Portal → FRC Search → Private Key) and `S4S_TOKEN` (same page, "Stores that are using this APP").
+The store address defaults to `https://fiercercsolutions.com`; set an `S4S_SECURE_URL` secret only if it ever changes.

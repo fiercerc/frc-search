@@ -35,7 +35,7 @@ jobs:
 
       - name: Pull products from Shift4Shop
         env:
-          S4S_SECURE_URL: ${{ secrets.S4S_SECURE_URL }}
+          S4S_SECURE_URL: ${{ secrets.S4S_SECURE_URL || 'https://fiercercsolutions.com' }}
           S4S_PRIVATE_KEY: ${{ secrets.S4S_PRIVATE_KEY }}
           S4S_TOKEN: ${{ secrets.S4S_TOKEN }}
         run: |
