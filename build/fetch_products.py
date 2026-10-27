@@ -77,6 +77,38 @@ def get_all(path, page_size):
     return out
 
 
+# Shift4Shop's name for the long description isn't documented consistently; use whichever exist.
+DESC_FIELDS = ('ExtendedDescription', 'Extended_Description', 'ExtDescription', 'LongDescription', 'Description')
+
+
+def dedupe(products):
+    """Shift4Shop pages overlap by one product; keep each CatalogID once."""
+    seen, out = set(), []
+    for p in products:
+        cid = str(pick(pick(p, 'SKUInfo', default={}) or {}, 'CatalogID') or pick(p, 'CatalogID'))
+        if cid in seen:
+            continue
+        seen.add(cid)
+        out.append(p)
+    return out
+
+
+def field_report(products):
+    """Field names and how many products fill each one (names and counts only, never values)."""
+    counts = {}
+    for p in products:
+        for k, v in p.items():
+            if isinstance(v, dict):
+                for k2, v2 in v.items():
+                    if not isinstance(v2, (dict, list)):
+                        key = k + '.' + k2
+                        counts[key] = counts.get(key, 0) + (1 if v2 not in (None, '', 0, '0') else 0)
+            else:
+                filled = bool(v) if isinstance(v, list) else v not in (None, '', 0, '0')
+                counts[k] = counts.get(k, 0) + (1 if filled else 0)
+    return dict(sorted(counts.items()))
+
+
 def pick(d, *names, default=''):
     for n in names:
         if isinstance(d, dict) and n in d and d[n] is not None:
@@ -140,7 +172,7 @@ def to_row(p, cat_paths, links):
         'nonsearchable': '1' if truthy(pick(p, 'NonSearchable', default=0)) else '0',
         'filename': link,
         'keywords': str(pick(p, 'Keywords')),
-        'extended_description': str(pick(p, 'ExtendedDescription')),
+        'extended_description': ' '.join(str(pick(p, n)) for n in DESC_FIELDS if pick(p, n)),
         'free_shipping': '1' if truthy(pick(p, 'FreeShipping', default=0)) else '0',
         'date_created': str(pick(p, 'DateCreated'))[:10],
     }
@@ -152,7 +184,9 @@ def main():
     cats = get_all('/Categories', 500)
     cat_paths = category_paths(cats)
     print('Reading products...')
-    products = get_all('/Products', 200)
+    raw = get_all('/Products', 200)
+    products = dedupe(raw)
+    print(f'  {len(raw) - len(products)} repeated products skipped')
     if len(products) < 500:
         raise SystemExit(f'Only {len(products)} products came back; refusing to publish a short list.')
     try:
@@ -162,6 +196,10 @@ def main():
     rows = [to_row(p, cat_paths, links) for p in products]
     data = build(rows)
     write_js(data, dst)
+    info = {'built': data.get('built'), 'products': len(products), 'repeats_skipped': len(raw) - len(products),
+            'fields': field_report(products)}
+    with open(os.path.join(os.path.dirname(os.path.abspath(dst)), 'frc-build-info.json'), 'w') as f:
+        json.dump(info, f, indent=1)
     print(f"Built {data['count']} products ({len(data['brands'])} brands, {len(data['cats'])} categories, {len(data['veh'])} vehicles)")
 
 
