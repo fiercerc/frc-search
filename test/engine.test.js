@@ -65,5 +65,24 @@ for (const q of ['shock sp', 'tkr50', 'gens a', 'hing']) {
   const r = E.search(q, { typing: true });
   console.log('TYPE ' + JSON.stringify(q).padEnd(24) + ' -> ' + names(r, 5).join(', '));
 }
+
+// Settings from the Google Sheet
+const E2 = new S.Engine({ brands, cats, items, cfg: {
+  syn: [['esc', 'speed control'], ['body', 'shell']],
+  pop: ['Tekno', 'Servo'],
+  pin: [{ q: ['stub axles', 'stub axle'], s: ['TKR5070A', 'NOPE123'] }],
+  go: [{ q: ['batteries', 'lipo batteries'], u: '/batteries.html', t: 'Shop all batteries' }],
+} });
+const sc = [
+  ['speed control finds the ESC', names(E2.search('speed control'))[0] === 'HWA30112619'],
+  ['shell finds bodies', names(E2.search('shell'))[0] === 'JCO5293-1'],
+  ['pinned first', names(E2.search('Stub Axles'))[0] === 'TKR5070A'],
+  ['pin ignores word order', names(E2.search('axles stub'))[0] === 'TKR5070A'],
+  ['shortcut', (E2.shortcut('Batteries') || {}).u === '/batteries.html' && !!E2.search('lipo batteries').go],
+  ['no shortcut otherwise', E2.shortcut('battery pack') === null],
+  ['popular', E2.popular.join() === 'Tekno,Servo'],
+  ['base engine untouched', !E.search('shell').hits.length && E.popular.length === 0],
+];
+for (const [label, ok] of sc) { if (!ok) fail++; console.log((ok ? 'PASS ' : 'FAIL ') + 'settings: ' + label); }
 console.log(fail ? fail + ' failing' : 'all passing');
 process.exit(fail ? 1 : 0);

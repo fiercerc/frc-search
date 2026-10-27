@@ -404,3 +404,8 @@ html.frcs-lock [id^="___ratingbadge"], html.frcs-lock a[href*="frcs=off"] { disp
   .frcs-dd, .frcs-sheet { animation: none; }
   .frcs-rp-filters, .frcs-all svg { transition: none; }
 }
+
+/* Shortcut from the settings sheet ("tekno" -> the Tekno RC page) */
+.frcs-go{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:10px 12px;background:var(--frcs-navy);color:#fff!important;font-weight:700;font-size:14px;text-decoration:none!important;border:0}
+.frcs-go svg{width:18px;height:18px;flex:none}
+.frcs-go:hover,.frcs-go:focus{background:var(--frcs-navy-dark)}

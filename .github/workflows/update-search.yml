@@ -46,6 +46,9 @@ jobs:
             cp data/frc-index.js site/frc-index.js
           fi
 
+      - name: Apply settings from the Google Sheet
+        run: python build/sheet_settings.py site/frc-index.js
+
       - name: Check the product list before publishing
         run: |
           node test/engine.test.js

@@ -231,7 +231,61 @@
     this.N = N;
     this.vocab = Object.keys(this.post).sort();
     this.alphaVocab = this.vocab.filter(function (t) { return /^[a-z]{3,}$/.test(t); });
+    this.setup(data.cfg || {});
   }
+
+  // A search's identity for pins and shortcuts: same words in any order, plurals and filler words ignored.
+  function qkey(s) {
+    var seen = {}, out = [];
+    textTokens(s).forEach(function (t) { if (!STOP[t] && !seen[t]) { seen[t] = 1; out.push(t); } });
+    return out.sort().join(' ');
+  }
+  function words(s) { return rawTokens(prep(s)).join(' '); }
+
+  // Settings from the Google Sheet: synonyms, popular searches, pinned results, shortcuts.
+  Engine.prototype.setup = function (cfg) {
+    var self = this;
+    this.syn = Object.create(null);
+    Object.keys(SYN).forEach(function (k) { self.syn[k] = SYN[k].slice(); });
+    this.rewrites = [];
+    (cfg.syn || []).forEach(function (group) {
+      var list = (group || []).map(words).filter(Boolean);
+      if (list.length < 2) return;
+      var main = list[0];
+      // Phrases ("speed control") are rewritten to the first entry; single words match each other both ways.
+      list.forEach(function (w, i) {
+        if (i && w !== main && (w.indexOf(' ') >= 0 || main.indexOf(' ') >= 0)) self.rewrites.push({ from: ' ' + w + ' ', to: ' ' + main + ' ' });
+      });
+      var singles = list.filter(function (w) { return w.indexOf(' ') < 0; });
+      singles.forEach(function (w) {
+        var k = stem(w), arr = self.syn[k] || (self.syn[k] = []);
+        singles.forEach(function (o) { if (stem(o) !== k && arr.indexOf(o) < 0) arr.push(o); });
+      });
+    });
+    this.rewrites.sort(function (a, b) { return b.from.length - a.from.length; });
+    this.pins = Object.create(null);
+    (cfg.pin || []).forEach(function (p) {
+      var docs = [];
+      (p.s || []).forEach(function (sku) {
+        (self.skuExact[compact(sku)] || []).forEach(function (d) { if (docs.indexOf(d) < 0) docs.push(d); });
+      });
+      if (docs.length) (p.q || []).forEach(function (q) { var k = qkey(q); if (k) self.pins[k] = docs; });
+    });
+    this.go = Object.create(null);
+    (cfg.go || []).forEach(function (g) {
+      if (g && g.u) (g.q || []).forEach(function (q) { var k = qkey(q); if (k) self.go[k] = { u: g.u, t: g.t || '' }; });
+    });
+    this.popular = (cfg.pop || []).filter(Boolean);
+  };
+
+  Engine.prototype.rewrite = function (q) {
+    if (!this.rewrites.length) return q;
+    var s = ' ' + words(q) + ' ', before = s;
+    this.rewrites.forEach(function (r) { s = s.split(r.from).join(r.to); });
+    return s === before ? q : s.trim();
+  };
+
+  Engine.prototype.shortcut = function (q) { return this.go[qkey(q)] || null; };
 
   Engine.prototype.idf = function (tok) {
     return 1 + Math.log(this.N / (1 + (this.df[tok] || 0)));
@@ -271,7 +325,7 @@
     function push(tok, q, kind) { if (df[tok] && !seen[tok]) { seen[tok] = 1; out.push({ tok: tok, q: q, kind: kind }); } }
     push(s, 1, 'exact');
     if (s !== raw) push(raw, 1, 'exact');
-    (SYN[s] || []).forEach(function (x) { push(stem(x), 0.9, 'syn'); });
+    (this.syn[s] || []).forEach(function (x) { push(stem(x), 0.9, 'syn'); });
     var hasDigit = /\d/.test(s);
     var exact = out.length > 0;
     // Part numbers also match their variants: tkr5070 -> tkr5070a, tkr5070hd.
@@ -406,7 +460,10 @@
     var res = { q: q, hits: [], exactSku: null, corrected: null, partial: false, terms: [] };
     var cq = compact(q);
     if (!cq) return res;
-    var parsed = this.parse(q, !!opts.typing);
+    var key = qkey(q);
+    res.go = this.go[key] || null;
+    var pq = this.rewrite(q);
+    var parsed = this.parse(pq, !!opts.typing);
     var terms = parsed.terms;
     res.terms = terms;
     if (!terms.length) return res;
@@ -488,6 +545,14 @@
       return (b.s - a.s) || ((b.it.f & 1) - (a.it.f & 1)) || ((b.it.q > 0) - (a.it.q > 0)) || ((b.it.d || 0) - (a.it.d || 0)) || (a.it.n < b.it.n ? -1 : 1);
     });
     res.hits = hits.map(function (h) { return h.it; });
+
+    // Pinned results from the settings sheet go first, in the order listed.
+    var pin = this.pins[key] || (pq !== q && this.pins[qkey(pq)]);
+    if (pin) {
+      var pinned = pin.map(function (d) { return items[d]; });
+      res.hits = pinned.concat(res.hits.filter(function (it) { return pinned.indexOf(it) < 0; }));
+      res.pinned = pinned.length;
+    }
 
     var ex = this.skuExact[cq];
     if (ex && ex.length === 1) res.exactSku = items[ex[0]];
@@ -767,8 +832,9 @@
       h += '</div>';
       return { html: h, rows: [] };
     }
+    var goRow = res.go ? '<a class="frcs-go" href="' + esc(res.go.u) + '">' + ICON.arrow + '<span>' + esc(res.go.t || 'Go to the ' + q + ' page') + '</span></a>' : '';
     if (!res.hits.length) {
-      h += '<div class="frcs-none">';
+      h += goRow + '<div class="frcs-none">';
       h += '<div class="frcs-none-title">No parts match “' + esc(q) + '”</div>';
       h += '<div class="frcs-none-sub">Check the spelling, try fewer words, or search by part number.</div>';
       h += specialOrderHtml(q);
@@ -810,7 +876,7 @@
       res.hits.length.toLocaleString() + (res.hits.length === 1 ? ' match' : ' matches') + '</span></div>';
     var notice = '';
     if (res.corrected) notice = '<div class="frcs-notice">Showing results for <b>' + esc(res.corrected) + '</b></div>';
-    else if (res.partial) notice = '<div class="frcs-notice">No exact match. Showing close matches.</div>';
+    else if (res.partial && !res.pinned) notice = '<div class="frcs-notice">No exact match. Showing close matches.</div>';
 
     var list = rows.map(function (it, i) { return rowHtml(it, i, ms, it === exact); }).join('');
 
@@ -823,11 +889,11 @@
         brands.map(function (b) {
           return '<button type="button" class="frcs-chip" data-q="' + esc(q) + '" data-brand="' + esc(engine.brands[b[0]]) + '">' + esc(engine.brands[b[0]]) + ' <i>' + b[1] + '</i></button>';
         }).join('') + '</div>' : '';
-      h = notice + filterBtn + chips + head + '<div class="frcs-list">' + list + '</div>';
+      h = goRow + notice + filterBtn + chips + head + '<div class="frcs-list">' + list + '</div>';
     } else {
       h = '<div class="frcs-dd-main' + (side ? '' : ' no-side') + '">' +
         (side ? '<div class="frcs-side">' + side + '</div>' : '') +
-        '<div class="frcs-main">' + notice + head + '<div class="frcs-list">' + list + '</div></div>' +
+        '<div class="frcs-main">' + goRow + notice + head + '<div class="frcs-list">' + list + '</div></div>' +
         '</div>';
     }
     return { html: h, rows: rows };
@@ -891,6 +957,12 @@
     if (!q) return;
     pushRecent(q);
     track('search', { search_term: q });
+    var go = !extra && engine.shortcut(q);
+    if (go) {
+      track('search_shortcut', { search_term: q, link_url: go.u });
+      root.location.href = go.u;
+      return;
+    }
     var res = engine.search(q);
     if (res.exactSku && !extra) {
       track('search_part_number_jump', { search_term: q, item_id: res.exactSku.s });
@@ -1243,7 +1315,8 @@
       '<div class="frcs-rp-meta"><span class="frcs-rp-count">' + filtered.length.toLocaleString() + '</span> ' +
       (filtered.length === 1 ? 'product' : 'products') + (filtered.length !== total ? ' <span class="frcs-rp-of">of ' + total.toLocaleString() + '</span>' : '') + '</div>' +
       (res.corrected ? '<div class="frcs-rp-note">Showing results for <b>' + esc(res.corrected) + '</b>. No exact matches for “' + esc(s.q) + '”.</div>' : '') +
-      (res.partial ? '<div class="frcs-rp-note">No product matched every word. These are the closest matches.</div>' : '') +
+      (res.partial && !res.pinned ? '<div class="frcs-rp-note">No product matched every word. These are the closest matches.</div>' : '') +
+      (res.go ? '<a class="frcs-go" style="margin-top:12px;display:inline-flex" href="' + esc(res.go.u) + '">' + ICON.arrow + '<span>' + esc(res.go.t || 'Go to the ' + s.q + ' page') + '</span></a>' : '') +
       '</header>';
 
     if (!total) {
@@ -1406,6 +1479,7 @@
 
   function load(data) {
     engine = new Engine(data);
+    if (engine.popular.length) CFG.popular = engine.popular;
     var q = readyQueue; readyQueue = [];
     q.forEach(function (fn) { try { fn(); } catch (e) { if (root.console) console.error(e); } });
     if (isResultsPage()) renderResultsPage();
