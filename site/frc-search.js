@@ -680,8 +680,29 @@
   }
 
   function stockHtml(it, cls) {
-    var on = it.q > 0;
+    var on = inStock(it);
     return '<span class="' + cls + ' ' + (on ? 'is-in' : 'is-out') + '">' + (on ? 'In Stock.' : 'Out of Stock.') + '</span>';
+  }
+
+  function inStock(it) { return !!(it && it.q > 0); }
+
+  // Out-of-stock products go to the product page, where Shift4Shop's waiting-list button lives.
+  var WAIT_LABEL = 'Product - Add to Waiting List';
+
+  function rowCartHtml(it, i) {
+    if (!inStock(it)) {
+      return '<a class="frcs-row-cart is-wait" href="' + esc(productUrl(it)) + '" data-wait="' + i + '">' + esc(WAIT_LABEL) + '</a>';
+    }
+    return '<button type="button" class="frcs-row-cart" data-rowcart="' + i + '" aria-label="Add ' + esc(it.n) + ' to cart">' +
+      '<span class="frcs-cart-txt">' + ICON.cart + 'Add to cart</span><span class="frcs-cart-busy">Adding\u2026</span><span class="frcs-cart-done">' + ICON.check + 'Added</span></button>';
+  }
+
+  function cardCartHtml(it) {
+    if (!inStock(it)) {
+      return '<a class="frcs-cart is-wait" href="' + esc(productUrl(it)) + '" data-pid="' + it._i + '">' + esc(WAIT_LABEL) + '</a>';
+    }
+    return '<button type="button" class="frcs-cart" data-cart="' + it._i + '" aria-label="Add ' + esc(it.n) + ' to cart">' +
+      '<span class="frcs-cart-txt">Add To Cart</span><span class="frcs-cart-busy">Adding\u2026</span><span class="frcs-cart-done">' + ICON.check + 'Added</span></button>';
   }
 
   // Same as the store's own cards: one price, and on sale the red price with the regular price crossed out.
@@ -700,6 +721,8 @@
   };
   function addToCart(it, card) {
     if (!it || !card) return;
+    // q <= 0 never reaches Shift4Shop's inventory check (that check sends shoppers to the out-of-stock page).
+    if (!inStock(it)) { root.location.href = productUrl(it); return; }
     if (typeof root.get_product !== 'function' || typeof root.add_to_cart !== 'function' || !root.jQuery) { root.location.href = productUrl(it); return; }
     if (card.classList.contains('ajaxcart-loading')) return;
     card.classList.add('ajaxcart-loading');
@@ -810,8 +833,7 @@
       '</span></span>' +
       priceHtml(it, 'frcs-row-price') +
       '</a>' +
-      '<button type="button" class="frcs-row-cart" data-rowcart="' + i + '" aria-label="Add ' + esc(it.n) + ' to cart">' +
-      '<span class="frcs-cart-txt">' + ICON.cart + 'Add to cart</span><span class="frcs-cart-busy">Adding\u2026</span><span class="frcs-cart-done">' + ICON.check + 'Added</span></button>' +
+      rowCartHtml(it, i) +
       '</div>';
   }
 
@@ -982,10 +1004,18 @@
   }
 
   function onPanelClick(e) {
-    var t = e.target.closest('[data-rowcart], [data-q], [data-idx], [data-all], .frcs-x');
+    var t = e.target.closest('[data-rowcart], [data-wait], [data-q], [data-idx], [data-all], .frcs-x');
     if (!t) return;
     if (t.classList.contains('frcs-x')) { e.preventDefault(); closeSheet(); return; }
     var q = activeInput ? activeInput.value : '';
+    if (t.hasAttribute('data-wait')) {
+      var wi = currentRows[+t.getAttribute('data-wait')];
+      if (wi) {
+        track('select_item', { item_list_name: 'search', items: [{ item_id: wi.s || String(wi.c), item_name: wi.n }], search_term: q, method: 'waiting-list' });
+        pushRecent(q);
+      }
+      return;
+    }
     if (t.hasAttribute('data-rowcart')) {
       e.preventDefault();
       var ci = currentRows[+t.getAttribute('data-rowcart')];
@@ -1188,7 +1218,7 @@
 
   function cardHtml(it, ms) {
     var img = bigImgUrl(it);
-    return '<article class="frcs-card' + (it.q > 0 ? '' : ' is-out') + '" data-addcart-callback="FRCS_added">' +
+    return '<article class="frcs-card' + (inStock(it) ? '' : ' is-out') + '" data-addcart-callback="FRCS_added">' +
       '<a class="frcs-card-img" href="' + esc(productUrl(it)) + '" data-pid="' + it._i + '" tabindex="-1" aria-hidden="true">' +
       (img ? '<img src="' + esc(img) + '" alt="' + esc(it.n) + '" loading="lazy">' : '') +
       (isSale(it) ? '<span class="frcs-tag">Sale</span>' : '') +
@@ -1199,8 +1229,7 @@
       starsHtml(it, 'frcs-card-stars') +
       priceHtml(it, 'frcs-card-price') +
       stockHtml(it, 'frcs-card-stock') +
-      '<button type="button" class="frcs-cart" data-cart="' + it._i + '" aria-label="Add ' + esc(it.n) + ' to cart">' +
-      '<span class="frcs-cart-txt">Add To Cart</span><span class="frcs-cart-busy">Adding\u2026</span><span class="frcs-cart-done">' + ICON.check + 'Added</span></button>' +
+      cardCartHtml(it) +
       '</div></article>';
   }
 
