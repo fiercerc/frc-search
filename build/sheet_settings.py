@@ -25,6 +25,12 @@ from build_index import write_js  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIVE_INDEX = 'https://fiercerc.github.io/frc-search/frc-index.js'
 STORE_HOSTS = ('fiercercsolutions.com', 'www.fiercercsolutions.com')
+# Used when settings.json leaves log_url blank. A non-empty log_url in settings.json replaces it.
+DEFAULT_LOG_URL = 'https://script.google.com/macros/s/AKfycbx_LXP02wAUxxpZQdw4c08fRYZeNOyyTvRyIH6Rjb5HiQ3OHQ9nTIx_Tts_n72fM1F1XA/exec'
+
+
+def resolved_log_url(settings):
+    return str((settings or {}).get('log_url') or '').strip() or DEFAULT_LOG_URL
 
 
 def fetch(url):
@@ -180,9 +186,7 @@ def main():
     try:
         tabs = {name: rows_of(settings['sheet_id'], gid) for name, gid in settings['tabs'].items()}
         cfg, status['problems'] = build_cfg(tabs, data['items'])
-        log_url = str(settings.get('log_url') or '').strip()
-        if log_url:
-            cfg['log'] = log_url
+        cfg['log'] = resolved_log_url(settings)
         status['read'] = True
     except Exception as e:  # keep yesterday's settings rather than dropping them
         print(f'Could not read the settings sheet ({e}); keeping the settings already on the site.')
@@ -191,6 +195,8 @@ def main():
             cfg = read_js(fetch(LIVE_INDEX)).get('cfg') or {}
         except Exception:
             cfg = {}
+        if not cfg.get('log'):
+            cfg['log'] = resolved_log_url(settings)
     log_summary = {'top': [], 'issues': []}
     try:
         log_summary = summarize_log(rows_of(settings['sheet_id'], settings.get('search_log_gid', 693044905)))
@@ -292,9 +298,13 @@ h1{margin:0;font-size:28px;line-height:1.15}
 .setup p{margin:8px 0;color:var(--sub);font-size:14px}
 .setup input{width:min(420px,100%);height:38px;border:1px solid var(--line);padding:0 10px;font:14px Roboto,Arial,sans-serif}
 .setup button{height:38px;margin-left:8px;border:1px solid var(--navy);background:#fff;color:var(--navy);font-weight:700;padding:0 12px;cursor:pointer}
-.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px}
 .actions a{background:#fff;border:1px solid var(--navy);color:var(--navy);text-decoration:none;font-weight:700;padding:10px 12px}
 .actions a:hover{background:var(--navy);color:#fff}
+.preview-pair a{font-size:16px;padding:14px 16px}
+.preview-pair a.on{background:#15803d;border-color:#15803d;color:#fff}
+.preview-pair a.on:hover{background:#0f6b32;color:#fff}
+.preview-pair a.off{background:#fff}
 .card{background:#fff;border:1px solid var(--line);margin-top:16px}
 h2{margin:0;padding:12px 16px;font-size:16px;border-bottom:1px solid var(--line)}
 .health{width:100%;border-collapse:collapse}
@@ -322,11 +332,15 @@ a{color:var(--navy)} .empty{color:var(--sub)}
 <button type="button" id="frcs-pat-clear">Remove token</button>
 <p id="frcs-pat-state"></p>
 </details>
+<section class="card"><h2>Quick actions</h2>
+<nav class="actions preview-pair">
+<a class="on" href="https://fiercercsolutions.com/?frcs=on" target="_blank" rel="noopener">&#128994; Turn Preview ON (?frcs=on)</a>
+<a class="off" href="https://fiercercsolutions.com/?frcs=off" target="_blank" rel="noopener">&#9898; Turn Preview OFF (?frcs=off)</a>
+</nav>
 <nav class="actions">
 <a href="''' + e(sheet_url) + '''" target="_blank" rel="noopener">Open Settings Sheet</a>
 <a href="''' + e(sheet_url) + '#gid=' + str(analytics_gid) + '''" target="_blank" rel="noopener">Open Search Analytics Tab</a>
-<a href="https://fiercercsolutions.com/?frcs=on" target="_blank" rel="noopener">Preview Store Search (?frcs=on)</a>
-</nav>
+</nav></section>
 <section class="card"><h2>Index &amp; settings health</h2><table class="health">''' + health_rows + '''</table>
 <h2>Problems in the settings sheet</h2><ul class="probs">''' + plist + '''</ul></section>
 <div class="cols">
