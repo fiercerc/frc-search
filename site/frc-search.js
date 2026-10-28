@@ -276,6 +276,7 @@
       if (g && g.u) (g.q || []).forEach(function (q) { var k = qkey(q); if (k) self.go[k] = { u: g.u, t: g.t || '' }; });
     });
     this.popular = (cfg.pop || []).filter(Boolean);
+    this.logUrl = (cfg && cfg.log) || '';
   };
 
   Engine.prototype.rewrite = function (q) {
@@ -594,7 +595,8 @@
     perPage: 24,
     dropdownMax: 7,
     mobileBreakpoint: 768,
-    fonts: false
+    fonts: false,
+    logUrl: ''
   };
 
   function $(sel, ctx) { return (ctx || document).querySelector(sel); }
@@ -610,6 +612,57 @@
   }
   function isMobile() { return root.matchMedia && root.matchMedia('(max-width: ' + (CFG.mobileBreakpoint - 1) + 'px)').matches; }
   function track(name, params) { try { if (typeof root.gtag === 'function') root.gtag('event', name, params || {}); } catch (e) { } }
+
+  // What customers searched, without delaying the search itself.
+  var logMemo = { last: '', timer: 0 };
+  function countInStock(hits) {
+    var n = 0;
+    (hits || []).forEach(function (it) { if (it && it.q > 0) n++; });
+    return n;
+  }
+  function commitLog(q, total, inStock, source, detail) {
+    try {
+      q = String(q || '').trim();
+      if (!q) return;
+      if (total == null) {
+        if (!engine) return;
+        var found = engine.search(q);
+        total = found.hits.length;
+        inStock = countInStock(found.hits);
+      }
+      detail = detail || '';
+      var key = q.toLowerCase() + '\n' + source + '\n' + (source === 'results' || source === 'dropdown' || source === 'sheet' ? '' : String(detail));
+      if (key === logMemo.last) return;
+      logMemo.last = key;
+      if (typeof root.gtag === 'function') {
+        root.gtag('event', 'search', { search_term: q, search_results: total, search_in_stock: inStock, search_source: source });
+      }
+      var url = CFG.logUrl || (engine && engine.logUrl) || '';
+      if (!url) return;
+      var body = JSON.stringify({ ts: new Date().toISOString(), q: q, total: total, inStock: inStock, source: source, detail: detail });
+      var sent = false;
+      try {
+        if (root.navigator && root.navigator.sendBeacon) {
+          sent = root.navigator.sendBeacon(url, new Blob([body], { type: 'text/plain;charset=UTF-8' }));
+        }
+      } catch (e) { sent = false; }
+      if (!sent && root.fetch) {
+        root.fetch(url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: body, keepalive: true }).catch(function () {});
+      }
+    } catch (e) { }
+  }
+  function queueTypedLog(raw) {
+    var q = String(raw || '').trim();
+    clearTimeout(logMemo.timer);
+    if (q.length < 2) return;
+    logMemo.timer = setTimeout(function () {
+      var now = activeInput ? String(activeInput.value || '').trim() : q;
+      if (now.length > q.length && now.toLowerCase().indexOf(q.toLowerCase()) === 0) return;
+      if (!engine) return;
+      var res = engine.search(q);
+      commitLog(q, res.hits.length, countInStock(res.hits), (sheet && !sheet.hidden) ? 'sheet' : 'dropdown', '');
+    }, 1200);
+  }
   function store(key, val) {
     try {
       if (val === undefined) { var v = root.localStorage.getItem(key); return v ? JSON.parse(v) : null; }
@@ -975,6 +1028,7 @@
 
   function goToProduct(it, q, how) {
     track('select_item', { item_list_name: 'search', items: [{ item_id: it.s || String(it.c), item_name: it.n }], search_term: q, method: how });
+    commitLog(q, null, null, 'click', it.s || String(it.c));
     pushRecent(q);
     root.location.href = productUrl(it);
   }
@@ -987,12 +1041,14 @@
     var go = !extra && engine.shortcut(q);
     if (go) {
       track('search_shortcut', { search_term: q, link_url: go.u });
+      commitLog(q, null, null, 'shortcut', go.t || go.u);
       root.location.href = go.u;
       return;
     }
     var res = engine.search(q);
     if (res.exactSku && !extra) {
       track('search_part_number_jump', { search_term: q, item_id: res.exactSku.s });
+      commitLog(q, res.hits.length, countInStock(res.hits), 'click', res.exactSku.s || '');
       root.location.href = productUrl(res.exactSku);
       return;
     }
@@ -1017,6 +1073,7 @@
       var wi = currentRows[+t.getAttribute('data-wait')];
       if (wi) {
         track('select_item', { item_list_name: 'search', items: [{ item_id: wi.s || String(wi.c), item_name: wi.n }], search_term: q, method: 'waiting-list' });
+        commitLog(q, null, null, 'waiting_list', wi.s || String(wi.c));
         pushRecent(q);
         root.location.href = productUrl(wi);
       }
@@ -1087,7 +1144,7 @@
     var inp = $('#frcs-sheet-input', sheet);
     var clearQ = $('.frcs-clear-q', sheet);
     inp.__frcsClear = clearQ;
-    inp.addEventListener('input', function () { activeInput = inp; syncClear(inp); onInput(); });
+    inp.addEventListener('input', function () { activeInput = inp; syncClear(inp); onInput(); queueTypedLog(inp.value); });
     clearQ.addEventListener('click', function (e) {
       e.preventDefault();
       inp.value = '';
@@ -1196,7 +1253,7 @@
       activeInput = inp;
       whenReady(function () { renderPanel(inp.value.trim() ? inp.value : ''); });
     });
-    inp.addEventListener('input', function () { activeInput = inp; syncClear(inp); onInput(); });
+    inp.addEventListener('input', function () { activeInput = inp; syncClear(inp); onInput(); queueTypedLog(inp.value); });
     inp.addEventListener('keydown', onKey);
     inp.addEventListener('blur', function () { setTimeout(function () { if (document.activeElement !== inp) hidePanel(); }, 120); });
     var form = inp.form;
@@ -1399,6 +1456,7 @@
     }
     RP.res = engine.search(s.q);
     var res = RP.res;
+    commitLog(s.q, res.hits.length, countInStock(res.hits), 'results', '');
     track('view_search_results', { search_term: s.q, results: res.hits.length });
     if (!res.hits.length) track('search_no_results', { search_term: s.q });
     drawResults();
@@ -1520,12 +1578,19 @@
       var s = RP.state;
       if (t.hasAttribute('data-pid')) {
         var it = engine.items[+t.getAttribute('data-pid')];
-        if (it) { track('select_item', { item_list_name: 'search results', items: [{ item_id: it.s || String(it.c), item_name: it.n }], search_term: s.q }); pushRecent(s.q); }
+        if (it) {
+          track('select_item', { item_list_name: 'search results', items: [{ item_id: it.s || String(it.c), item_name: it.n }], search_term: s.q });
+          commitLog(s.q, null, null, 'click', it.s || String(it.c));
+          pushRecent(s.q);
+        }
         return;
       }
       if (t.hasAttribute('data-wait-card')) {
         var wit = engine.items[+t.getAttribute('data-wait-card')];
-        if (wit) root.location.href = productUrl(wit);
+        if (wit) {
+          commitLog(s.q, null, null, 'waiting_list', wit.s || String(wit.c));
+          root.location.href = productUrl(wit);
+        }
         return;
       }
       if (t.hasAttribute('data-cart')) { addToCart(engine.items[+t.getAttribute('data-cart')], t.closest('.frcs-card')); return; }
@@ -1596,6 +1661,7 @@
 
   function load(data) {
     engine = new Engine(data);
+    if (data && data.cfg && data.cfg.log && !CFG.logUrl) CFG.logUrl = data.cfg.log;
     if (engine.popular.length) CFG.popular = engine.popular;
     var q = readyQueue; readyQueue = [];
     q.forEach(function (fn) { try { fn(); } catch (e) { if (root.console) console.error(e); } });
