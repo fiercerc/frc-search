@@ -687,11 +687,13 @@
   function inStock(it) { return !!(it && it.q > 0); }
 
   // Out-of-stock products go to the product page, where Shift4Shop's waiting-list button lives.
-  var WAIT_LABEL = 'Product - Add to Waiting List';
+  // Same <button> as Add To Cart so the theme's link styles don't change the type.
+  var WAIT_LABEL = 'Waiting List';
 
   function rowCartHtml(it, i) {
     if (!inStock(it)) {
-      return '<a class="frcs-row-cart is-wait" href="' + esc(productUrl(it)) + '" data-wait="' + i + '">' + esc(WAIT_LABEL) + '</a>';
+      return '<button type="button" class="frcs-row-cart" data-wait="' + i + '" aria-label="Waiting list for ' + esc(it.n) + '">' +
+        '<span class="frcs-cart-txt">' + esc(WAIT_LABEL) + '</span><span class="frcs-cart-busy">Adding\u2026</span><span class="frcs-cart-done">' + ICON.check + 'Added</span></button>';
     }
     return '<button type="button" class="frcs-row-cart" data-rowcart="' + i + '" aria-label="Add ' + esc(it.n) + ' to cart">' +
       '<span class="frcs-cart-txt">' + ICON.cart + 'Add to cart</span><span class="frcs-cart-busy">Adding\u2026</span><span class="frcs-cart-done">' + ICON.check + 'Added</span></button>';
@@ -699,7 +701,8 @@
 
   function cardCartHtml(it) {
     if (!inStock(it)) {
-      return '<a class="frcs-cart is-wait" href="' + esc(productUrl(it)) + '" data-pid="' + it._i + '">' + esc(WAIT_LABEL) + '</a>';
+      return '<button type="button" class="frcs-cart" data-wait-card="' + it._i + '" aria-label="Waiting list for ' + esc(it.n) + '">' +
+        '<span class="frcs-cart-txt">' + esc(WAIT_LABEL) + '</span><span class="frcs-cart-busy">Adding\u2026</span><span class="frcs-cart-done">' + ICON.check + 'Added</span></button>';
     }
     return '<button type="button" class="frcs-cart" data-cart="' + it._i + '" aria-label="Add ' + esc(it.n) + ' to cart">' +
       '<span class="frcs-cart-txt">Add To Cart</span><span class="frcs-cart-busy">Adding\u2026</span><span class="frcs-cart-done">' + ICON.check + 'Added</span></button>';
@@ -829,8 +832,9 @@
       (it.s ? '<span class="frcs-sku">' + esc(it.s) + '</span>' : '') +
       (it.b != null && engine.brands[it.b] ? '<span class="frcs-brand">' + esc(engine.brands[it.b]) + '</span>' : '') +
       starsHtml(it, 'frcs-row-stars') +
+      '</span>' +
       stockHtml(it, 'frcs-stock') +
-      '</span></span>' +
+      '</span>' +
       priceHtml(it, 'frcs-row-price') +
       '</a>' +
       rowCartHtml(it, i) +
@@ -1009,10 +1013,12 @@
     if (t.classList.contains('frcs-x')) { e.preventDefault(); closeSheet(); return; }
     var q = activeInput ? activeInput.value : '';
     if (t.hasAttribute('data-wait')) {
+      e.preventDefault();
       var wi = currentRows[+t.getAttribute('data-wait')];
       if (wi) {
         track('select_item', { item_list_name: 'search', items: [{ item_id: wi.s || String(wi.c), item_name: wi.n }], search_term: q, method: 'waiting-list' });
         pushRecent(q);
+        root.location.href = productUrl(wi);
       }
       return;
     }
@@ -1225,7 +1231,7 @@
       '</a>' +
       '<div class="frcs-card-body">' +
       '<a class="frcs-card-name" href="' + esc(productUrl(it)) + '" data-pid="' + it._i + '">' + highlight(it.n, ms) + '</a>' +
-      (it.s ? '<div class="frcs-card-sku">Part #: ' + esc(it.s) + '</div>' : '') +
+      '<div class="frcs-card-sku">' + (it.s ? 'Part #: ' + esc(it.s) : '&nbsp;') + '</div>' +
       starsHtml(it, 'frcs-card-stars') +
       priceHtml(it, 'frcs-card-price') +
       stockHtml(it, 'frcs-card-stock') +
@@ -1450,6 +1456,11 @@
       if (t.hasAttribute('data-pid')) {
         var it = engine.items[+t.getAttribute('data-pid')];
         if (it) { track('select_item', { item_list_name: 'search results', items: [{ item_id: it.s || String(it.c), item_name: it.n }], search_term: s.q }); pushRecent(s.q); }
+        return;
+      }
+      if (t.hasAttribute('data-wait-card')) {
+        var wit = engine.items[+t.getAttribute('data-wait-card')];
+        if (wit) root.location.href = productUrl(wit);
         return;
       }
       if (t.hasAttribute('data-cart')) { addToCart(engine.items[+t.getAttribute('data-cart')], t.closest('.frcs-card')); return; }
