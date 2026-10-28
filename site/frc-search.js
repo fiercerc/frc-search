@@ -654,6 +654,7 @@
   function queueTypedLog(raw) {
     var q = String(raw || '').trim();
     clearTimeout(logMemo.timer);
+    if (q.length === 0) { logMemo.last = ''; return; }
     if (q.length < 2) return;
     logMemo.timer = setTimeout(function () {
       var now = activeInput ? String(activeInput.value || '').trim() : q;
@@ -1101,6 +1102,7 @@
       var val = t.getAttribute('data-q');
       if (activeInput) { activeInput.value = val; activeInput.focus(); syncClear(activeInput); }
       renderPanel(val);
+      queueTypedLog(val);
     }
   }
 
@@ -1152,6 +1154,7 @@
       activeInput = inp;
       inp.focus();
       renderPanel('');
+      queueTypedLog('');
     });
     inp.addEventListener('keydown', onKey);
     $('form', sheet).addEventListener('submit', function (e) { e.preventDefault(); submitSearch(inp.value); });
@@ -1215,6 +1218,7 @@
       activeInput = inp;
       inp.focus();
       renderPanel('');
+      queueTypedLog('');
     });
     inp.__frcsClear = btn;
     return btn;
