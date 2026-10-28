@@ -11,7 +11,20 @@ Site search for fiercercsolutions.com: the instant dropdown, the phone search sc
 If the job ever fails, the last good version stays live. Nothing breaks on the store.
 
 - **Settings sheet:** synonyms, popular searches, pinned results and shortcuts live in the "FRC Search Settings" Google Sheet (`settings.json` has its ID). Each update reads it. If it can't be read, the previous settings are kept.
-- **Status page:** https://fiercerc.github.io/frc-search/status.html shows the last update, product count and any problems in the sheet.
+- **Status page:** https://fiercerc.github.io/frc-search/status.html is the desktop control panel: index health, customer searches, and a Rebuild Search Index Now button.
+
+The store is still on the preview snippet. Search appears only in browsers that opened the site with `?frcs=on`.
+
+## Going live
+
+When the preview is ready for every shopper:
+
+1. In Shift4Shop **Settings → Design → Header & Footer → Global Footer**, replace the preview snippet (`footer-snippet.html`) with the contents of `live-snippet.html`. That loads the new search for everyone, with no preview badge. `?frcs=off` still turns it off in that browser if you ever need an emergency bypass (`?frcs=on` turns it back on).
+2. Optionally, in the theme `frame.html`, comment out the old `<!--START:fbquicksearch-->` … `<!--END:fbquicksearch-->` block so FusionBot's old search does not load beside the new one.
+
+Leave `footer-snippet.html` in the footer until that swap. Do not publish `live-snippet.html` early.
+
+To record searches, paste `build/google_apps_script_logger.gs` into the settings spreadsheet (the steps are at the top of that file) and put the Web App URL in `settings.json` as `log_url`.
 
 ## Files
 
@@ -20,7 +33,10 @@ If the job ever fails, the last good version stays live. Nothing breaks on the s
 | `site/frc-search.js` | The search (dropdown, phone screen, results page, Add To Cart) |
 | `site/frc-search.css` | The look (matches the store: Roboto, navy, square corners) |
 | `build/fetch_products.py` | Pulls products from the Shift4Shop API |
-| `build/sheet_settings.py` | Reads the settings sheet and writes the status page |
+| `build/sheet_settings.py` | Reads the settings sheet and writes the control panel (`status.html`) |
+| `build/google_apps_script_logger.gs` | Paste into the settings sheet to record customer searches |
+| `footer-snippet.html` | Preview snippet (only runs with `?frcs=on`) |
+| `live-snippet.html` | The snippet to paste when search goes live for everyone |
 | `build/build_index.py` | Turns products into the search's product list. Also works from a product export CSV: `python3 build/build_index.py products.csv site/frc-index.js` |
 | `data/frc-index.js` | Saved product list, used until the Shift4Shop keys are added |
 | `data/links.json` | Product page addresses from the last export, used if the API leaves one out |
