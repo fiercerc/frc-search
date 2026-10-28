@@ -1042,7 +1042,7 @@
     if (t.hasAttribute('data-q')) {
       e.preventDefault();
       var val = t.getAttribute('data-q');
-      if (activeInput) { activeInput.value = val; activeInput.focus(); }
+      if (activeInput) { activeInput.value = val; activeInput.focus(); syncClear(activeInput); }
       renderPanel(val);
     }
   }
@@ -1077,14 +1077,25 @@
     sheet.innerHTML =
       '<form class="frcs-sheet-bar" role="search" action="' + esc(CFG.resultsPath) + '">' +
       '<label class="frcs-sheet-field">' + ICON.search +
-      '<input type="search" name="' + esc(CFG.queryParam) + '" id="frcs-sheet-input" placeholder="Search parts, kits or part #" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Search products"></label>' +
+      '<input type="search" name="' + esc(CFG.queryParam) + '" id="frcs-sheet-input" placeholder="Search parts, kits or part #" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Search products">' +
+      '<button type="button" class="frcs-clear-q" aria-label="Clear search" hidden>' + ICON.close + '</button></label>' +
       '<button type="button" class="frcs-x">Cancel</button>' +
       '</form>' +
       '<div class="frcs-sheet-body"></div>' +
       '<div class="frcs-sheet-foot-wrap"></div>';
     document.body.appendChild(sheet);
     var inp = $('#frcs-sheet-input', sheet);
-    inp.addEventListener('input', function () { activeInput = inp; onInput(); });
+    var clearQ = $('.frcs-clear-q', sheet);
+    inp.__frcsClear = clearQ;
+    inp.addEventListener('input', function () { activeInput = inp; syncClear(inp); onInput(); });
+    clearQ.addEventListener('click', function (e) {
+      e.preventDefault();
+      inp.value = '';
+      syncClear(inp);
+      activeInput = inp;
+      inp.focus();
+      renderPanel('');
+    });
     inp.addEventListener('keydown', onKey);
     $('form', sheet).addEventListener('submit', function (e) { e.preventDefault(); submitSearch(inp.value); });
     sheet.addEventListener('click', onPanelClick);
@@ -1097,6 +1108,7 @@
     sheetPrevInput = fromInput;
     var inp = $('#frcs-sheet-input', sheet);
     inp.value = fromInput ? fromInput.value : '';
+    syncClear(inp);
     sheet.hidden = false;
     document.documentElement.classList.add('frcs-lock');
     activeInput = inp;
@@ -1107,8 +1119,56 @@
     if (!sheet || sheet.hidden) return;
     sheet.hidden = true;
     document.documentElement.classList.remove('frcs-lock');
-    if (sheetPrevInput) sheetPrevInput.value = $('#frcs-sheet-input', sheet).value;
+    if (sheetPrevInput) {
+      sheetPrevInput.value = $('#frcs-sheet-input', sheet).value;
+      syncClear(sheetPrevInput);
+    }
     activeInput = sheetPrevInput;
+  }
+
+  function syncClear(inp) {
+    if (!inp) return;
+    var on = inp.value.length > 0;
+    if (inp.__frcsClear) inp.__frcsClear.hidden = !on;
+    if (!inp.__frcsClear || inp.id !== 'frcs-sheet-input') inp.classList.toggle('frcs-has-clear', on);
+  }
+
+  function ensureDesktopClear(inp) {
+    if (inp.__frcsClear) return inp.__frcsClear;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'frcs-input-clear';
+    btn.setAttribute('aria-label', 'Clear search');
+    btn.hidden = true;
+    btn.innerHTML = ICON.close;
+    var host = (inp.closest && inp.closest('.search-form')) || inp.parentNode;
+    if (host && host !== document.body) {
+      var pos = '';
+      try { pos = root.getComputedStyle(host).position; } catch (e) { }
+      if (!pos || pos === 'static') host.style.position = 'relative';
+      host.appendChild(btn);
+    } else {
+      inp.insertAdjacentElement('afterend', btn);
+    }
+    btn.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      inp.value = '';
+      syncClear(inp);
+      activeInput = inp;
+      inp.focus();
+      renderPanel('');
+    });
+    inp.__frcsClear = btn;
+    return btn;
+  }
+
+  function seedQuery(inp) {
+    if (inp.value || !isResultsPage()) return;
+    try {
+      var q0 = new URLSearchParams(root.location.search).get(CFG.queryParam) || '';
+      if (q0) inp.value = q0;
+    } catch (e) { }
   }
 
   function bindInput(inp) {
@@ -1119,6 +1179,9 @@
     inp.setAttribute('aria-autocomplete', 'list');
     inp.setAttribute('aria-expanded', 'false');
     if (!inp.getAttribute('placeholder') || /^search$/i.test(inp.getAttribute('placeholder'))) inp.setAttribute('placeholder', 'Search parts, kits or part #');
+    seedQuery(inp);
+    ensureDesktopClear(inp);
+    syncClear(inp);
     function maybeSheet(e) {
       if (!isMobile()) return false;
       e.preventDefault();
@@ -1128,11 +1191,12 @@
     }
     inp.addEventListener('touchend', function (e) { maybeSheet(e); }, { passive: false });
     inp.addEventListener('focus', function (e) {
+      syncClear(inp);
       if (isMobile()) { if (!sheet || sheet.hidden) { inp.blur(); openSheet(inp); } return; }
       activeInput = inp;
       whenReady(function () { renderPanel(inp.value.trim() ? inp.value : ''); });
     });
-    inp.addEventListener('input', function () { activeInput = inp; onInput(); });
+    inp.addEventListener('input', function () { activeInput = inp; syncClear(inp); onInput(); });
     inp.addEventListener('keydown', onKey);
     inp.addEventListener('blur', function () { setTimeout(function () { if (document.activeElement !== inp) hidePanel(); }, 120); });
     var form = inp.form;
@@ -1347,6 +1411,7 @@
     try { document.title = s.q + ' | Search | Fierce RC Solutions'; } catch (e) { }
     var inp = $(CFG.inputSelector);
     if (inp && !inp.value) inp.value = s.q;
+    syncClear(inp);
   }
 
   function drawResults() {
