@@ -31,6 +31,18 @@ html.frcs-lock, html.frcs-lock body { overflow: hidden !important; }
 /* While the phone search or filter panel is open, hide floating badges (Google rating, preview tag) that would cover its buttons. */
 html.frcs-lock [id^="___ratingbadge"], html.frcs-lock a[href*="frcs=off"] { display: none !important; }
 
+/* Clear control for the store header search box (lives outside .frcs, left of the magnifying-glass submit). */
+button.frcs-input-clear {
+  position: absolute; z-index: 3; top: 0; bottom: 0; right: 50px; width: 28px; height: 28px; margin: auto 0;
+  padding: 0; border: 0; border-radius: 0; background: transparent; color: #5c6576; box-sizing: border-box;
+  display: grid; place-items: center; cursor: pointer; line-height: 1;
+}
+button.frcs-input-clear[hidden] { display: none !important; }
+button.frcs-input-clear svg { width: 16px; height: 16px; display: block; }
+button.frcs-input-clear:hover { color: #0c0c0c; }
+.search-form .search-text.frcs-has-clear,
+input.frcs-has-clear { padding-right: 88px !important; }
+
 /* ---------- shared bits ---------- */
 .frcs-label { font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: 12px; color: var(--frcs-navy); }
 .frcs-label.is-dark { display: block; margin-top: 22px; margin-bottom: 10px; }
@@ -140,7 +152,7 @@ html.frcs-lock [id^="___ratingbadge"], html.frcs-lock a[href*="frcs=off"] { disp
 .frcs-item.is-exact .frcs-row.is-exact { background: transparent; }
 .frcs-row-cart {
   flex: none; margin: 0 10px 0 2px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  height: 34px; min-width: 116px; padding: 0 12px; background: var(--frcs-navy); color: #fff; border: 2px solid var(--frcs-navy); border-radius: 0;
+  width: 136px; min-width: 136px; height: 34px; padding: 0 12px; background: var(--frcs-navy); color: #fff; border: 2px solid var(--frcs-navy); border-radius: 0;
   font-family: var(--frcs-font); font-weight: 600; font-size: 12px; text-transform: uppercase; white-space: nowrap;
 }
 .frcs-row-cart:hover { background: var(--frcs-navy-dark); border-color: var(--frcs-navy-dark); }
@@ -194,6 +206,12 @@ html.frcs-lock [id^="___ratingbadge"], html.frcs-lock a[href*="frcs=off"] { disp
 .frcs-sheet-field input:focus, .frcs-sheet-field input:focus-visible { outline: none !important; box-shadow: none !important; }
 .frcs-sheet-field input::placeholder { color: #6b7280; opacity: 1; }
 .frcs-sheet-field input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.frcs-clear-q {
+  flex: none; width: 32px; height: 32px; margin: 0; padding: 0; border: 0; background: transparent;
+  color: var(--frcs-sub); display: grid; place-items: center; font-size: 18px; line-height: 1;
+}
+.frcs-clear-q svg { font-size: 16px; color: var(--frcs-sub); }
+.frcs-clear-q:hover { color: var(--frcs-text); }
 .frcs-x { background: none; border: 0; color: #fff; font-size: 15px; font-weight: 500; padding: 8px 2px; flex: none; }
 .frcs-sheet-body {
   flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
@@ -208,7 +226,7 @@ html.frcs-lock [id^="___ratingbadge"], html.frcs-lock a[href*="frcs=off"] { disp
 .frcs-sheet .frcs-row-price { grid-area: price; flex-direction: row; align-items: baseline; gap: 8px; justify-content: flex-start; }
 .frcs-sheet .frcs-row-name { font-size: 15px; }
 .frcs-sheet .frcs-item { display: flex; flex-direction: column; align-items: stretch; }
-.frcs-sheet .frcs-row-cart { margin: -2px 4px 12px 88px; height: 38px; font-size: 13px; }
+.frcs-sheet .frcs-row-cart { width: auto; min-width: 0; margin: -2px 4px 12px 88px; height: 38px; font-size: 13px; }
 .frcs-sheet-filter {
   display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; margin: 0 0 14px;
   background: var(--frcs-navy); color: #fff; border: 0; border-radius: 0; padding: 12px 14px; font-family: var(--frcs-font);
