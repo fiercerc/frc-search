@@ -35,30 +35,38 @@ def headers():
     }
 
 
+def fail(msg):
+    # "::error::" lines show up as notes on the GitHub run, so the reason is visible without opening the log.
+    print(f'::error title=Shift4Shop pull failed::{msg}')
+    raise SystemExit(msg)
+
+
 def get(path, params):
     url = API + path + '?' + urllib.parse.urlencode(params)
-    for attempt in range(6):
+    last = ''
+    for attempt in range(8):
         req = urllib.request.Request(url, headers=headers())
         try:
             with urllib.request.urlopen(req, timeout=120) as r:
                 body = r.read().decode('utf-8', 'replace')
-                return json.loads(body) if body.strip() else []
+            return json.loads(body) if body.strip() else []
         except urllib.error.HTTPError as e:
-            if e.code == 429:
-                wait = int(e.headers.get('Retry-After') or 30)
-                print(f'  rate limited, waiting {wait}s')
-                time.sleep(wait + 1)
-                continue
             if e.code == 404:
                 return []  # Shift4Shop answers 404 past the last page
-            detail = e.read().decode('utf-8', 'replace')[:300]
-            raise SystemExit(f'Shift4Shop API error {e.code} on {path}: {detail}')
-        except urllib.error.URLError as e:
-            if attempt < 5:
-                time.sleep(5 * (attempt + 1))
-                continue
-            raise SystemExit(f'Could not reach Shift4Shop: {e}')
-    raise SystemExit('Shift4Shop kept rate-limiting; try again later.')
+            detail = e.read().decode('utf-8', 'replace')[:300].replace('\n', ' ')
+            last = f'HTTP {e.code} on {path} (offset {params.get("offset")}): {detail}'
+            if e.code == 429:
+                wait = int(e.headers.get('Retry-After') or 30)
+            elif e.code >= 500 or e.code == 408:
+                wait = 20 * (attempt + 1)  # Shift4Shop hiccup: wait and try again
+            else:
+                fail(last)  # 401/403 etc. won't fix themselves (keys revoked, app removed)
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError, ValueError) as e:
+            last = f'{type(e).__name__} on {path} (offset {params.get("offset")}): {e}'
+            wait = 20 * (attempt + 1)
+        print(f'  {last} - retrying in {wait}s')
+        time.sleep(wait + 1)
+    fail(f'Gave up after 8 tries. Last error: {last}')
 
 
 def get_all(path, page_size):
@@ -190,7 +198,7 @@ def main():
     products = dedupe(raw)
     print(f'  {len(raw) - len(products)} repeated products skipped')
     if len(products) < 500:
-        raise SystemExit(f'Only {len(products)} products came back; refusing to publish a short list.')
+        fail(f'Only {len(products)} products came back; refusing to publish a short list.')
     try:
         links = json.load(open(os.path.join(ROOT, 'data', 'links.json')))
     except (OSError, ValueError):
@@ -206,4 +214,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as e:  # anything unexpected: label it on the run, keep the live site as is
+        fail(f'{type(e).__name__}: {e}')
