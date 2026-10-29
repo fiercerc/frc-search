@@ -725,6 +725,7 @@
     phone: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 3h3l1.6 4.3-2.2 1.4a11 11 0 0 0 6.3 6.3l1.4-2.2L21 14.4v3A2.6 2.6 0 0 1 18.4 20 15.4 15.4 0 0 1 4 5.6 2.6 2.6 0 0 1 6.6 3z" fill="currentColor"/></svg>',
     filter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
     close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
     check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
   };
 
@@ -833,7 +834,8 @@
         cartQty[it.c] = (cartQty[it.c] || 0) + 1;
         showInCart(card, it);
         bumpCart(1);
-        toast('Added to cart');
+        toast('Added to cart', false, hintShown ? '' : 'Tap again to add more');
+        hintShown = true;
         // Once the store's cart answers, show its real quantity for this product (the cart may already have had some).
         refreshCart(function (list) {
           var want = plain(it.n);
@@ -862,7 +864,7 @@
   function bumpCart(by) { if (cartCount == null) cartCount = readCartCount(); paintCart(cartCount + by); }
   // How many of each product the shopper has added from our buttons (catalog id -> quantity).
   var cartQty = {};
-  function doneHtml(it) { return ICON.check + (cartQty[it.c] ? cartQty[it.c] + ' in cart' : 'Added'); }
+  function doneHtml(it) { return cartQty[it.c] ? ICON.check + cartQty[it.c] + ' in cart<i class="frcs-more">' + ICON.plus + '</i>' : ICON.check + 'Added'; }
   function showInCart(card, it) {
     var d = card && card.querySelector('.frcs-cart-done');
     if (d) d.innerHTML = doneHtml(it);
@@ -898,7 +900,8 @@
   }
 
   var toastEl = null, toastTimer = 0;
-  function toast(msg, warn) {
+  var hintShown = false;
+  function toast(msg, warn, hint) {
     if (!toastEl) {
       toastEl = document.createElement('div');
       toastEl.className = 'frcs frcs-toast'; toastEl.setAttribute('role', 'status'); toastEl.hidden = true;
@@ -906,7 +909,7 @@
     }
     document.body.appendChild(toastEl); // last in the page, so it sits above the phone search screen
     toastEl.classList.toggle('is-warn', !!warn);
-    toastEl.innerHTML = (warn ? ICON.close : ICON.check) + '<span>' + esc(msg) + '</span><a href="/view_cart.asp">View cart</a>';
+    toastEl.innerHTML = (warn ? ICON.close : ICON.check) + '<span>' + esc(msg) + (hint ? '<small>' + esc(hint) + '</small>' : '') + '</span><a href="/view_cart.asp">View cart</a>';
     toastEl.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { toastEl.hidden = true; }, 4500);

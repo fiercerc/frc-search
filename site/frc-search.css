@@ -479,5 +479,10 @@ button.frcs-cart {
 }
 .frcs-toast svg { font-size: 16px; color: #7ee2a0; }
 .frcs-toast.is-warn svg { color: #ffb4a8; }
+.frcs-toast span { display: flex; flex-direction: column; gap: 2px; }
+.frcs-toast small { font-size: 12px; font-weight: 500; opacity: .8; }
+/* the + after "2 in cart" says: click again to add another */
+.frcs-more { display: inline-flex; align-items: center; margin-left: 2px; padding-left: 8px; border-left: 1px solid rgba(255, 255, 255, .45); font-style: normal; color: #fff !important; }
+.frcs-more svg { font-size: 14px; color: #fff !important; }
 .frcs-toast a { color: #fff !important; text-transform: uppercase; font-size: 12.5px; letter-spacing: .02em; border-left: 1px solid rgba(255, 255, 255, .35); padding-left: 12px; text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 767px) { .frcs-toast { bottom: 96px; } }
