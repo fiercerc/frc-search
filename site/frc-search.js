@@ -824,7 +824,11 @@
       url: '/frontapi.asp?module=addcartajax&ajaxadd=1', dataType: 'json', type: 'POST', cache: false, contentType: false, processData: false, data: fd,
       success: function (r) {
         card.classList.remove('ajaxcart-loading');
-        if (!r || Number(r.AddedToCart) !== 1) { root.location.href = (r && r.errorurl) || link; return; }
+        if (!r || Number(r.AddedToCart) !== 1) {
+          // Store says no more are available (error 28): say so here instead of sending the shopper to an error page.
+          if (r && /[?&]error=28(&|$)/.test(r.errorurl || '')) { toast('No more in stock to add', true); return; }
+          root.location.href = (r && r.errorurl) || link; return;
+        }
         card.classList.add('ajaxcart-complete');
         setTimeout(function () { card.classList.remove('ajaxcart-complete'); }, 2200);
         bumpCart(1);
@@ -874,14 +878,15 @@
   }
 
   var toastEl = null, toastTimer = 0;
-  function toast(msg) {
+  function toast(msg, warn) {
     if (!toastEl) {
       toastEl = document.createElement('div');
       toastEl.className = 'frcs frcs-toast'; toastEl.setAttribute('role', 'status'); toastEl.hidden = true;
       document.body.appendChild(toastEl);
     }
     document.body.appendChild(toastEl); // last in the page, so it sits above the phone search screen
-    toastEl.innerHTML = ICON.check + '<span>' + esc(msg) + '</span><a href="/view_cart.asp">View cart</a>';
+    toastEl.classList.toggle('is-warn', !!warn);
+    toastEl.innerHTML = (warn ? ICON.close : ICON.check) + '<span>' + esc(msg) + '</span><a href="/view_cart.asp">View cart</a>';
     toastEl.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { toastEl.hidden = true; }, 4500);
