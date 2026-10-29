@@ -993,13 +993,26 @@
     return { html: h, rows: rows };
   }
 
-  function footHtml(q, res, mobile) {
+  function seeAllHtml(q, res) {
     if (!q || !res || !res.hits.length) return '';
-    var n = res.hits.length;
-    var btn = '<a class="frcs-all" href="' + esc(resultsUrl(q)) + '" data-all="1">See all ' + n.toLocaleString() + ' results' + ICON.arrow + '</a>';
-    if (mobile) return '<div class="frcs-sheet-foot">' + btn + '</div>';
-    return '<div class="frcs-dd-foot">' + btn +
-      '<span class="frcs-keys"><kbd>↑</kbd><kbd>↓</kbd> move <kbd>↵</kbd> open <kbd>esc</kbd> close</span></div>';
+    return '<a class="frcs-all" href="' + esc(resultsUrl(q)) + '" data-all="1">See all ' + res.hits.length.toLocaleString() + ' results' + ICON.arrow + '</a>';
+  }
+
+  // Phone: "See all results" stays pinned under the list, where a thumb reaches it.
+  function footHtml(q, res, mobile) {
+    if (!mobile) return '';
+    var btn = seeAllHtml(q, res);
+    return btn ? '<div class="frcs-sheet-foot">' + btn + '</div>' : '';
+  }
+
+  // Desktop: one bar across the top with "See all results" on the left and the arrow-key hint and a Close button on the right.
+  function topBarHtml(q, res) {
+    var left = seeAllHtml(q, res) || '<span class="frcs-dd-hint">Start typing to search</span>';
+    return '<div class="frcs-dd-top">' + left +
+      '<span class="frcs-dd-tools">' +
+      (res && res.hits.length ? '<span class="frcs-keys"><kbd>↑</kbd><kbd>↓</kbd> move</span>' : '') +
+      '<button type="button" class="frcs-dd-close" data-ddclose="1" aria-label="Close search results">Close' + ICON.close + '</button>' +
+      '</span></div>';
   }
 
   var currentRows = [];
@@ -1018,7 +1031,7 @@
       $('.frcs-sheet-body', sheet).scrollTop = 0;
     } else {
       ensureDropdown();
-      dd.innerHTML = body.html + footHtml(q, res, false);
+      dd.innerHTML = topBarHtml(q, res) + body.html;
       dd.classList.toggle('is-compact', !q || !res.hits.length);
       dd.hidden = false;
       positionDropdown();
@@ -1078,9 +1091,16 @@
   }
 
   function onPanelClick(e) {
-    var t = e.target.closest('[data-rowcart], [data-wait], [data-q], [data-idx], [data-all], .frcs-x');
+    var t = e.target.closest('[data-rowcart], [data-wait], [data-q], [data-idx], [data-all], [data-ddclose], .frcs-x');
     if (!t) return;
     if (t.classList.contains('frcs-x')) { e.preventDefault(); closeSheet(); return; }
+    if (t.hasAttribute('data-ddclose')) {
+      e.preventDefault();
+      hidePanel();
+      // Let go of the box so clicking it again opens the results again.
+      if (activeInput && document.activeElement === activeInput) activeInput.blur();
+      return;
+    }
     var q = activeInput ? activeInput.value : '';
     if (t.hasAttribute('data-wait')) {
       e.preventDefault();
