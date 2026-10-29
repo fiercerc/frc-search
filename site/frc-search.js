@@ -793,7 +793,7 @@
     if (!it || !card) return;
     // q <= 0 never reaches Shift4Shop's inventory check (that check sends shoppers to the out-of-stock page).
     if (!inStock(it)) { root.location.href = productUrl(it); return; }
-    if (typeof root.get_product !== 'function' || typeof root.add_to_cart !== 'function' || !root.jQuery) { root.location.href = productUrl(it); return; }
+    if (typeof root.get_product !== 'function' || !root.jQuery) { root.location.href = productUrl(it); return; }
     if (card.classList.contains('ajaxcart-loading')) return;
     card.classList.add('ajaxcart-loading');
     track('add_to_cart', { currency: 'USD', value: finalPrice(it), items: [{ item_id: it.s || String(it.c), item_name: it.n, price: finalPrice(it), quantity: 1 }] });
@@ -810,8 +810,81 @@
       var qv = typeof root.isQuickviewEnabled === 'function' && root.isQuickviewEnabled();
       if (needsPage && qv && typeof root.quickview === 'function') { root.quickview('/product.asp?lt_c=1&itemid=' + it.c + '&qv=1'); card.classList.remove('ajaxcart-loading'); return; }
       if (needsPage) { root.location.href = link; return; }
-      root.add_to_cart(t.CatalogID, t.SKU, 0, t.Price, 1, [], false, card);
+      postAdd(t, it, card, link);
     }, 30);
+  }
+
+  // Same request the theme's add_to_cart sends, but the shopper stays where they are: the theme jumps to the cart page
+  // whenever the store is set to "go to cart after adding". We confirm on the button, update the header cart, and show a View cart link.
+  function postAdd(t, it, card, link) {
+    var fd = new FormData();
+    fd.append('item_id', t.CatalogID); fd.append('itemid', t.SKU); fd.append('category_id', 0); fd.append('std_price', t.Price); fd.append('qty-0', 1);
+    function fail() { card.classList.remove('ajaxcart-loading'); root.location.href = link; }
+    root.jQuery.ajax({
+      url: '/frontapi.asp?module=addcartajax&ajaxadd=1', dataType: 'json', type: 'POST', cache: false, contentType: false, processData: false, data: fd,
+      success: function (r) {
+        card.classList.remove('ajaxcart-loading');
+        if (!r || Number(r.AddedToCart) !== 1) { root.location.href = (r && r.errorurl) || link; return; }
+        card.classList.add('ajaxcart-complete');
+        setTimeout(function () { card.classList.remove('ajaxcart-complete'); }, 2200);
+        bumpCart(1);
+        toast('Added to cart');
+        refreshCart();
+      },
+      error: fail
+    });
+  }
+
+  // ---- header cart: keep the numbers current without a page load, and show a count on the phone cart icon ----
+  var cartCount = null;
+  function readCartCount() {
+    var el = document.querySelector('.minicart-items'), n = el ? parseInt(el.textContent, 10) : NaN;
+    return isNaN(n) ? 0 : n;
+  }
+  function paintCart(n, subtotal) {
+    cartCount = n;
+    $$('.minicart-items').forEach(function (el) { el.textContent = String(n); });
+    if (subtotal != null) $$('.minicart-subtotal').forEach(function (el) { el.textContent = '$' + (Math.round(subtotal * 100) % 100 === 0 ? String(Math.round(subtotal)) : subtotal.toFixed(2)); });
+    var b = document.querySelector('.frcs-cart-badge');
+    if (b) { b.textContent = n > 99 ? '99+' : String(n); b.hidden = n < 1; }
+  }
+  function bumpCart(by) { if (cartCount == null) cartCount = readCartCount(); paintCart(cartCount + by); }
+  function refreshCart() {
+    if (!root.jQuery) return;
+    root.jQuery.ajax({
+      url: '/frontapi.asp', data: { module: 'cartajax' }, dataType: 'json', type: 'GET', cache: false,
+      success: function (r) {
+        var list = r && r.ItemsInCart;
+        if (!list || !list.length) return;
+        var n = 0, sub = 0;
+        list.forEach(function (x) { var q = parseInt(x.qty, 10) || 0; n += q; sub += (parseFloat(x.price) || 0) * q; });
+        paintCart(n, sub);
+      }
+    });
+  }
+  // The theme hides the cart count on phones, so put one on the icon.
+  function addCartBadge() {
+    var link = document.querySelector('.head-mobile-nav a[href$="view_cart.asp"]');
+    if (!link || link.querySelector('.frcs-cart-badge')) return;
+    link.classList.add('frcs-has-badge');
+    var b = document.createElement('span');
+    b.className = 'frcs-cart-badge'; b.setAttribute('aria-label', 'Items in cart');
+    link.appendChild(b);
+    paintCart(readCartCount());
+  }
+
+  var toastEl = null, toastTimer = 0;
+  function toast(msg) {
+    if (!toastEl) {
+      toastEl = document.createElement('div');
+      toastEl.className = 'frcs frcs-toast'; toastEl.setAttribute('role', 'status'); toastEl.hidden = true;
+      document.body.appendChild(toastEl);
+    }
+    document.body.appendChild(toastEl); // last in the page, so it sits above the phone search screen
+    toastEl.innerHTML = ICON.check + '<span>' + esc(msg) + '</span><a href="/view_cart.asp">View cart</a>';
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.hidden = true; }, 4500);
   }
 
   function specialOrderHtml(q) {
@@ -1723,6 +1796,7 @@
     injectCss();
     injectFonts();
     $$(CFG.inputSelector).forEach(bindInput);
+    addCartBadge();
     if (isResultsPage()) whenReady(renderResultsPage);
     else if (CFG.indexUrl) {
       // Warm the data in the background once the page is idle.
