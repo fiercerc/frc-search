@@ -19,6 +19,7 @@ If the job ever fails, the last good version stays live. Nothing breaks on the s
 
 - **One browser:** open the store with `?frcs=off` (back on with `?frcs=on`). Use this to compare or to bypass the new search on your own device.
 - **Everyone:** in Shift4Shop **Settings → Design → Header & Footer → Global Footer**, replace the live snippet (from `<!-- Fierce RC Search. Loads for every visitor.` through `<!-- end Fierce RC Search -->`) with the contents of `footer-snippet.html` (preview-only: it does nothing unless a browser opened the site with `?frcs=on`). Save. The store is back on FusionBot immediately, because FusionBot's code was never removed from the theme (`frame.html` still has its `<!--START:fbquicksearch-->` block).
+- The snippet hides FusionBot's results on the search page the instant it runs (no flash). If the new search can't load (GitHub Pages down, blocked script, or 15 seconds with no results), FusionBot's results come back by themselves.
 - A copy of the whole Global Footer from before go-live is saved in the browser used for the change (localStorage key `frc_footer_backup_2026_10_29` on fiercercsolutions.com).
 
 ## After FusionBot is cancelled

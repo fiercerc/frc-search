@@ -13,6 +13,36 @@
   document.head.appendChild(css);
   window.FRCS_MANUAL = true;
   window.FRCS_CONFIG = { indexUrl: base + 'frc-index.js?v=' + ver, inputSelector: '#frcs-q', resultsMount: '#frcs-results', fonts: false };
+
+  // Search page: hide FusionBot's results the moment this runs (the page is already built here) so shoppers
+  // never see them flash before the new results appear. They come back on their own if the new search can't load.
+  var early = null;
+  function claimResults() {
+    if (location.pathname !== '/search.html') return;
+    Array.prototype.forEach.call(document.getElementsByTagName('span'), function (el) {
+      if (/^\s*FusionBot Search Results\s*$/.test(el.textContent)) el.textContent = 'Search Results';
+    });
+    if (early) return;
+    var fb = document.getElementById('fusionbot-content');
+    if (!fb || document.getElementById('frcs-results')) return;
+    var row = fb;
+    while (row && !(row.classList && row.classList.contains('row'))) row = row.parentNode;
+    var target = row || fb.parentNode;
+    var mount = document.createElement('div');
+    mount.id = 'frcs-results'; mount.style.padding = '0 15px';
+    mount.innerHTML = '<p data-frcs-wait="1" style="margin:0;padding:48px 0;text-align:center;color:#666;font:14px Roboto,Arial,sans-serif">Loading results...</p>';
+    target.parentNode.insertBefore(mount, target);
+    target.style.display = 'none';
+    early = { target: target, mount: mount };
+  }
+  function giveBack() {
+    if (!early) return;
+    early.target.style.display = '';
+    if (early.mount.parentNode) early.mount.parentNode.removeChild(early.mount);
+    early = null;
+  }
+  claimResults();
+
   function swap() {
     // Take the header search box away from FusionBot.
     var box = document.getElementById('searchBox');
@@ -23,25 +53,16 @@
       if (inp) { inp.id = 'frcs-q'; inp.className = inp.className.replace(/\bsearchlight\b/g, ''); }
     }
     Array.prototype.forEach.call(document.querySelectorAll('.searchlight-balloon'), function (b) { b.parentNode.removeChild(b); });
-    // On the search page, give the results area to the new search.
-    if (location.pathname === '/search.html') {
-      var fb = document.getElementById('fusionbot-content');
-      if (fb && !document.getElementById('frcs-results')) {
-        var row = fb;
-        while (row && !(row.classList && row.classList.contains('row'))) row = row.parentNode;
-        var target = row || fb.parentNode;
-        var mount = document.createElement('div');
-        mount.id = 'frcs-results'; mount.style.padding = '0 15px';
-        target.parentNode.replaceChild(mount, target);
-      }
-      Array.prototype.forEach.call(document.getElementsByTagName('span'), function (el) {
-        if (/^\s*FusionBot Search Results\s*$/.test(el.textContent)) el.textContent = 'Search Results';
-      });
-    }
+    claimResults();
     var s = document.createElement('script');
     s.src = base + 'frc-search.js?v=' + ver;
-    s.onload = function () { if (window.FRCSearch) window.FRCSearch.init(); };
+    s.onload = function () {
+      try { if (!window.FRCSearch) throw 0; window.FRCSearch.init(); } catch (e) { giveBack(); }
+    };
+    s.onerror = giveBack;
     document.body.appendChild(s);
+    // Safety net: if the new results never appear, show FusionBot's again.
+    setTimeout(function () { if (early && early.mount.querySelector('[data-frcs-wait]')) giveBack(); }, 15000);
   }
   if (document.readyState === 'complete') swap();
   else window.addEventListener('load', swap);
