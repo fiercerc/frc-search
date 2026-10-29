@@ -611,7 +611,13 @@
     return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
   function isMobile() { return root.matchMedia && root.matchMedia('(max-width: ' + (CFG.mobileBreakpoint - 1) + 'px)').matches; }
-  function track(name, params) { try { if (typeof root.gtag === 'function') root.gtag('event', name, params || {}); } catch (e) { } }
+  function track(name, params) {
+    try {
+      params = params || {};
+      if (params.search_term != null) params.search_term = redact(params.search_term, 80);
+      if (typeof root.gtag === 'function') root.gtag('event', name, params);
+    } catch (e) { }
+  }
 
   // What customers searched, without delaying the search itself.
   var logMemo = { last: '', timer: 0 };
@@ -620,9 +626,17 @@
     (hits || []).forEach(function (it) { if (it && it.q > 0) n++; });
     return n;
   }
+  // Customers sometimes type an email, phone or order number into a search box. Never log those as typed.
+  function redact(s, max) {
+    s = String(s == null ? '' : s).replace(/[\u0000-\u001f]/g, ' ').trim();
+    s = s.replace(/[^\s@]+@[^\s@]+/g, '[email]');
+    s = s.replace(/\+?\(?\d[\d\s().\-\/]{7,}\d/g, function (m) { return m.replace(/\D/g, '').length >= 10 ? '[number]' : m; });
+    return s.slice(0, max || 80);
+  }
+  var GA_LOG_EVENT = { dropdown: 'search_typed', sheet: 'search_typed', waiting_list: 'waiting_list_click' };
   function commitLog(q, total, inStock, source, detail) {
     try {
-      q = String(q || '').trim();
+      q = redact(q, 80);
       if (!q) return;
       if (total == null) {
         if (!engine) return;
@@ -630,13 +644,12 @@
         total = found.hits.length;
         inStock = countInStock(found.hits);
       }
-      detail = detail || '';
+      detail = redact(detail || '', 60);
       var key = q.toLowerCase() + '\n' + source + '\n' + (source === 'results' || source === 'dropdown' || source === 'sheet' ? '' : String(detail));
       if (key === logMemo.last) return;
       logMemo.last = key;
-      if (typeof root.gtag === 'function') {
-        root.gtag('event', 'search', { search_term: q, search_results: total, search_in_stock: inStock, search_source: source });
-      }
+      // Real searches are already counted once as "search" when submitted; these get their own names.
+      if (GA_LOG_EVENT[source]) track(GA_LOG_EVENT[source], { search_term: q, search_results: total, search_in_stock: inStock, search_source: source });
       var url = CFG.logUrl || (engine && engine.logUrl) || '';
       if (!url) return;
       var body = JSON.stringify({ ts: new Date().toISOString(), q: q, total: total, inStock: inStock, source: source, detail: detail });
@@ -1038,7 +1051,7 @@
     q = String(q || '').trim();
     if (!q) return;
     pushRecent(q);
-    track('search', { search_term: q });
+    track('search', { search_term: redact(q, 80) });
     var go = !extra && engine.shortcut(q);
     if (go) {
       track('search_shortcut', { search_term: q, link_url: go.u });

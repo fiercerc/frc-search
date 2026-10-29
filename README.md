@@ -11,7 +11,7 @@ Site search for fiercercsolutions.com: the instant dropdown, the phone search sc
 If the job ever fails, the last good version stays live. Nothing breaks on the store.
 
 - **Settings sheet:** synonyms, popular searches, pinned results and shortcuts live in the "FRC Search Settings" Google Sheet (`settings.json` has its ID). Each update reads it. If it can't be read, the previous settings are kept.
-- **Status page:** https://fiercerc.github.io/frc-search/status.html is the desktop control panel: index health, customer searches, and a Rebuild Search Index Now button.
+- **Status page:** https://fiercerc.github.io/frc-search/status.html is the desktop control panel: index health, search counts for the last 30 days, and a Run an update now link (no GitHub key is stored in the browser).
 
 The store is still on the preview snippet. Search appears only in browsers that opened the site with `?frcs=on`.
 
@@ -24,7 +24,7 @@ When the preview is ready for every shopper:
 
 Leave `footer-snippet.html` in the footer until that swap. Do not publish `live-snippet.html` early.
 
-To record searches, paste `build/google_apps_script_logger.gs` into the settings spreadsheet (the steps are at the top of that file) and put the Web App URL in `settings.json` as `log_url`.
+Search log: `build/google_apps_script_logger.gs` runs in the settings spreadsheet's Apps Script and saves searches to a separate PRIVATE spreadsheet ("FRC Search Log (private)"). Emails and long numbers are removed in the browser and again in the script; the public summary it serves has counts per term only. Update steps are at the top of that file. `log_url` in `settings.json` is the Web App URL; optional `log_sheet_url` adds an Open Private Search Log button to the control panel.
 
 ## Files
 
