@@ -901,7 +901,18 @@
 
   var toastEl = null, toastTimer = 0;
   var hintShown = false;
+  var noteTimer = 0;
   function toast(msg, warn, hint) {
+    // Desktop dropdown: say it in the top bar, between See all results and Close, so it never covers the list.
+    var slot = dd && !dd.hidden ? dd.querySelector('.frcs-dd-note') : null;
+    if (slot) {
+      if (toastEl) toastEl.hidden = true;
+      slot.className = 'frcs-dd-note is-on' + (warn ? ' is-warn' : '');
+      slot.innerHTML = (warn ? ICON.close : ICON.check) + '<b>' + esc(msg) + '</b>' + (hint ? '<small>' + esc(hint) + '</small>' : '') + '<a href="/view_cart.asp">View cart</a>';
+      clearTimeout(noteTimer);
+      noteTimer = setTimeout(function () { slot.className = 'frcs-dd-note'; slot.innerHTML = ''; }, 5000);
+      return;
+    }
     if (!toastEl) {
       toastEl = document.createElement('div');
       toastEl.className = 'frcs frcs-toast'; toastEl.setAttribute('role', 'status'); toastEl.hidden = true;
@@ -1109,7 +1120,7 @@
   // Desktop: one bar across the top with "See all results" on the left and the arrow-key hint and a Close button on the right.
   function topBarHtml(q, res) {
     var left = seeAllHtml(q, res) || '<span class="frcs-dd-hint">Start typing to search</span>';
-    return '<div class="frcs-dd-top">' + left +
+    return '<div class="frcs-dd-top">' + left + '<span class="frcs-dd-note" role="status" aria-live="polite"></span>' +
       '<span class="frcs-dd-tools">' +
       (res && res.hits.length ? '<span class="frcs-keys"><kbd>↑</kbd><kbd>↓</kbd> move</span>' : '') +
       '<button type="button" class="frcs-dd-close" data-ddclose="1" aria-label="Close search results">Close' + ICON.close + '</button>' +
