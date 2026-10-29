@@ -151,9 +151,9 @@ input.frcs-has-clear { padding-right: 88px !important; }
 .frcs-item.is-exact { background: #eef2f8; }
 .frcs-item.is-exact .frcs-row.is-exact { background: transparent; }
 button.frcs-row-cart {
-  box-sizing: border-box; flex: 0 0 136px; margin: 0 10px 0 2px;
+  box-sizing: border-box; flex: 0 0 172px; margin: 0 10px 0 2px;
   display: inline-flex; align-items: center; justify-content: center; text-align: center;
-  width: 136px; min-width: 136px; max-width: 136px; height: 34px; padding: 0 12px; line-height: 1;
+  width: 172px; min-width: 172px; max-width: 172px; height: 34px; padding: 0 12px; line-height: 1;
   background: var(--frcs-navy); color: #fff; border: 2px solid var(--frcs-navy); border-radius: 0;
   font-family: var(--frcs-font); font-weight: 600; font-size: 12px; text-transform: uppercase; white-space: nowrap;
   vertical-align: middle;
@@ -373,7 +373,7 @@ button.frcs-cart .frcs-cart-txt {
 button.frcs-cart {
   box-sizing: border-box; margin-top: auto; align-self: flex-start; position: relative;
   display: inline-flex; align-items: center; justify-content: center; text-align: center;
-  width: 150px; height: 39px; padding: 0 12px; line-height: 1; vertical-align: middle;
+  width: 188px; height: 39px; padding: 0 12px; line-height: 1; vertical-align: middle;
 }
 .frcs-cart svg { font-size: 14px; }
 .frcs-cart-busy, .frcs-cart-done { display: none; align-items: center; gap: 6px; }
@@ -493,5 +493,11 @@ button.frcs-cart {
 /* the + after "2 in cart" says: click again to add another */
 .frcs-more { display: inline-flex; align-items: center; margin-left: 2px; padding-left: 8px; border-left: 1px solid rgba(255, 255, 255, .45); font-style: normal; color: #fff !important; }
 .frcs-more svg { font-size: 14px; color: #fff !important; }
+/* the - at the left of the in-cart button */
+.frcs-cart-done { align-self: stretch; white-space: nowrap; }
+@media (max-width: 767px) { .frcs-card .frcs-minus { min-width: 34px; padding: 0 9px 0 8px; margin-right: 2px; } .frcs-card .frcs-cart-done { gap: 4px; } }
+.frcs-minus { align-self: stretch; display: inline-flex; align-items: center; justify-content: center; min-width: 40px; margin: 0 4px 0 -12px; padding: 0 12px 0 10px; border-right: 1px solid rgba(255, 255, 255, .45); cursor: pointer; transition: background .12s; }
+.frcs-minus:hover { background: rgba(0, 0, 0, .18); }
+.frcs-minus svg { font-size: 14px; color: #fff !important; }
 .frcs-toast a { color: #fff !important; text-transform: uppercase; font-size: 12.5px; letter-spacing: .02em; border-left: 1px solid rgba(255, 255, 255, .35); padding-left: 12px; text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 767px) { .frcs-toast { bottom: 96px; } }

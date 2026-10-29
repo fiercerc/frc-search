@@ -726,6 +726,7 @@
     filter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
     close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
     plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
+    minus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
     check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
   };
 
@@ -834,8 +835,7 @@
         cartQty[it.c] = (cartQty[it.c] || 0) + 1;
         showInCart(card, it);
         bumpCart(1);
-        toast('Added to cart', false, hintShown ? '' : 'Tap again to add more');
-        hintShown = true;
+        toast('Added to cart');
         // Once the store's cart answers, show its real quantity for this product (the cart may already have had some).
         refreshCart(function (list) {
           var want = plain(it.n);
@@ -846,6 +846,58 @@
       },
       error: fail
     });
+  }
+
+  // The "-" on the in-cart button. The store's own Delete link works by changing that line's quantity in the cart page's form and
+  // submitting it, so we do the same: load the form, lower this one product by 1, and send every other field back exactly as it was.
+  // Stock is never touched (the store only takes stock when an order is placed). If anything looks off we change nothing and say so.
+  function removeOne(it, card) {
+    if (!it || !card || card.classList.contains('ajaxcart-loading') || typeof root.fetch !== 'function') return;
+    var busy = card.querySelector('.frcs-cart-busy'), busyText = busy ? busy.textContent : '';
+    if (busy) busy.textContent = 'Updating\u2026';
+    card.classList.remove('ajaxcart-complete');
+    card.classList.add('ajaxcart-loading');
+    function done() { card.classList.remove('ajaxcart-loading'); if (busy) busy.textContent = busyText; }
+    function bail() { done(); if (cartQty[it.c]) showInCart(card, it); toast('Couldn\u2019t update the cart', true); }
+    var newQty = 0;
+    root.fetch('/view_cart.asp', { credentials: 'same-origin', cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw 0; return r.text(); })
+      .then(function (html) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var form = doc.getElementById('recalculate');
+        if (!form) throw 0;
+        var inputs = $$('input[name^="qty"]', form), lines = $$('.cart-item', doc), pick = null;
+        inputs.forEach(function (inp, i) {
+          var line = inp.closest('.cart-item') || (lines.length === inputs.length ? lines[i] : null);
+          var a = line && line.querySelector('a[href*="itemid="]');
+          var m = a && /[?&]itemid=(\d+)/i.exec(a.getAttribute('href'));
+          if (m && +m[1] === +it.c) pick = inp;
+        });
+        var cur = pick ? parseInt(pick.value, 10) : 0;
+        if (!(cur >= 1)) throw 0;
+        newQty = cur - 1;
+        var fd = new FormData(form); fd.set(pick.name, String(newQty));
+        var body = new URLSearchParams(); fd.forEach(function (v, k) { body.append(k, v); });
+        var action = new URL(form.getAttribute('action') || 'recalculate.asp', root.location.origin + '/').href;
+        return root.fetch(action, { method: 'POST', body: body, credentials: 'same-origin', redirect: 'follow' });
+      })
+      .then(function (r) { if (!r.ok) throw 0; return root.fetch('/frontapi.asp?module=cartajax', { credentials: 'same-origin', cache: 'no-store' }); })
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (cart) {
+        // Believe the store's cart, not our arithmetic.
+        var list = (cart && cart.ItemsInCart) || [], want = plain(it.n), have = -1, n = 0, sub = 0;
+        list.forEach(function (x) {
+          var q = parseInt(x.qty, 10) || 0; n += q; sub += (parseFloat(x.price) || 0) * q;
+          if (plain(x.itemname) === want) have = (have < 0 ? 0 : have) + q;
+        });
+        var truth = have >= 0 ? have : newQty;
+        if (truth > 0) cartQty[it.c] = truth; else delete cartQty[it.c];
+        done();
+        if (truth > 0) showInCart(card, it);
+        paintCart(n, sub);
+        toast(truth > 0 ? 'Removed one from cart' : 'Removed from cart');
+      })
+      .catch(bail);
   }
 
   // ---- header cart: keep the numbers current without a page load, and show a count on the phone cart icon ----
@@ -864,7 +916,11 @@
   function bumpCart(by) { if (cartCount == null) cartCount = readCartCount(); paintCart(cartCount + by); }
   // How many of each product the shopper has added from our buttons (catalog id -> quantity).
   var cartQty = {};
-  function doneHtml(it) { return cartQty[it.c] ? ICON.check + cartQty[it.c] + ' in cart<i class="frcs-more">' + ICON.plus + '</i>' : ICON.check + 'Added'; }
+  function doneHtml(it) {
+    var n = cartQty[it.c];
+    return n ? '<span class="frcs-minus" role="button" aria-label="Remove one from cart" data-step="-1">' + ICON.minus + '</span>' +
+      ICON.check + n + ' in cart<i class="frcs-more">' + ICON.plus + '</i>' : ICON.check + 'Added';
+  }
   function showInCart(card, it) {
     var d = card && card.querySelector('.frcs-cart-done');
     if (d) d.innerHTML = doneHtml(it);
@@ -1228,6 +1284,7 @@
     if (t.hasAttribute('data-rowcart')) {
       e.preventDefault();
       var ci = currentRows[+t.getAttribute('data-rowcart')];
+      if (ci && e.target.closest('[data-step="-1"]')) { removeOne(ci, t.closest('.frcs-item')); return; }
       if (ci) { pushRecent(q); addToCart(ci, t.closest('.frcs-item')); }
       return;
     }
@@ -1742,7 +1799,11 @@
         }
         return;
       }
-      if (t.hasAttribute('data-cart')) { addToCart(engine.items[+t.getAttribute('data-cart')], t.closest('.frcs-card')); return; }
+      if (t.hasAttribute('data-cart')) {
+        var cit = engine.items[+t.getAttribute('data-cart')], ccard = t.closest('.frcs-card');
+        if (e.target.closest('[data-step="-1"]')) removeOne(cit, ccard); else addToCart(cit, ccard);
+        return;
+      }
       if (t.hasAttribute('data-price')) { var k = t.getAttribute('data-price'); s.price = s.price === k ? '' : k; }
       else if (t.hasAttribute('data-rm')) {
         var f = t.getAttribute('data-rm'), v = t.getAttribute('data-val');
