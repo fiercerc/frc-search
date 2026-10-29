@@ -763,7 +763,7 @@
         '<span class="frcs-cart-txt">' + esc(WAIT_LABEL) + '</span><span class="frcs-cart-busy">Adding\u2026</span><span class="frcs-cart-done">' + ICON.check + 'Added</span></button>';
     }
     return '<button type="button" class="frcs-row-cart" data-rowcart="' + i + '" aria-label="Add ' + esc(it.n) + ' to cart">' +
-      '<span class="frcs-cart-txt">' + ICON.cart + 'Add to cart</span><span class="frcs-cart-busy">Adding\u2026</span><span class="frcs-cart-done">' + ICON.check + 'Added</span></button>';
+      '<span class="frcs-cart-txt">' + ICON.cart + 'Add to cart</span><span class="frcs-cart-busy">Adding\u2026</span><span class="frcs-cart-done">' + doneHtml(it) + '</span></button>';
   }
 
   function cardCartHtml(it) {
@@ -772,7 +772,7 @@
         '<span class="frcs-cart-txt">' + esc(WAIT_LABEL) + '</span><span class="frcs-cart-busy">Adding\u2026</span><span class="frcs-cart-done">' + ICON.check + 'Added</span></button>';
     }
     return '<button type="button" class="frcs-cart" data-cart="' + it._i + '" aria-label="Add ' + esc(it.n) + ' to cart">' +
-      '<span class="frcs-cart-txt">Add To Cart</span><span class="frcs-cart-busy">Adding\u2026</span><span class="frcs-cart-done">' + ICON.check + 'Added</span></button>';
+      '<span class="frcs-cart-txt">Add To Cart</span><span class="frcs-cart-busy">Adding\u2026</span><span class="frcs-cart-done">' + doneHtml(it) + '</span></button>';
   }
 
   // Same as the store's own cards: one price, and on sale the red price with the regular price crossed out.
@@ -795,6 +795,7 @@
     if (!inStock(it)) { root.location.href = productUrl(it); return; }
     if (typeof root.get_product !== 'function' || !root.jQuery) { root.location.href = productUrl(it); return; }
     if (card.classList.contains('ajaxcart-loading')) return;
+    card.classList.remove('ajaxcart-complete');
     card.classList.add('ajaxcart-loading');
     track('add_to_cart', { currency: 'USD', value: finalPrice(it), items: [{ item_id: it.s || String(it.c), item_name: it.n, price: finalPrice(it), quantity: 1 }] });
     setTimeout(function () {
@@ -826,14 +827,20 @@
         card.classList.remove('ajaxcart-loading');
         if (!r || Number(r.AddedToCart) !== 1) {
           // Store says no more are available (error 28): say so here instead of sending the shopper to an error page.
-          if (r && /[?&]error=28(&|$)/.test(r.errorurl || '')) { toast('No more in stock to add', true); return; }
+          if (r && /[?&]error=28(&|$)/.test(r.errorurl || '')) { toast('No more in stock to add', true); if (cartQty[it.c]) showInCart(card, it); return; }
           root.location.href = (r && r.errorurl) || link; return;
         }
-        card.classList.add('ajaxcart-complete');
-        setTimeout(function () { card.classList.remove('ajaxcart-complete'); }, 2200);
+        cartQty[it.c] = (cartQty[it.c] || 0) + 1;
+        showInCart(card, it);
         bumpCart(1);
         toast('Added to cart');
-        refreshCart();
+        // Once the store's cart answers, show its real quantity for this product (the cart may already have had some).
+        refreshCart(function (list) {
+          var want = plain(it.n);
+          for (var k = 0; k < list.length; k++) {
+            if (plain(list[k].itemname) === want) { cartQty[it.c] = parseInt(list[k].qty, 10) || cartQty[it.c]; showInCart(card, it); break; }
+          }
+        });
       },
       error: fail
     });
@@ -853,7 +860,19 @@
     if (b) { b.textContent = n > 99 ? '99+' : String(n); b.hidden = n < 1; }
   }
   function bumpCart(by) { if (cartCount == null) cartCount = readCartCount(); paintCart(cartCount + by); }
-  function refreshCart() {
+  // How many of each product the shopper has added from our buttons (catalog id -> quantity).
+  var cartQty = {};
+  function doneHtml(it) { return ICON.check + (cartQty[it.c] ? cartQty[it.c] + ' in cart' : 'Added'); }
+  function showInCart(card, it) {
+    var d = card && card.querySelector('.frcs-cart-done');
+    if (d) d.innerHTML = doneHtml(it);
+    if (card) card.classList.add('ajaxcart-complete');
+  }
+  function plain(s) {
+    var t = document.createElement('textarea'); t.innerHTML = String(s || '');
+    return t.value.replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+  function refreshCart(done) {
     if (!root.jQuery) return;
     root.jQuery.ajax({
       url: '/frontapi.asp', data: { module: 'cartajax' }, dataType: 'json', type: 'GET', cache: false,
@@ -863,6 +882,7 @@
         var n = 0, sub = 0;
         list.forEach(function (x) { var q = parseInt(x.qty, 10) || 0; n += q; sub += (parseFloat(x.price) || 0) * q; });
         paintCart(n, sub);
+        if (done) done(list);
       }
     });
   }
@@ -967,7 +987,7 @@
 
   function rowHtml(it, i, ms, exact) {
     var img = imgUrl(it);
-    return '<div class="frcs-item' + (exact ? ' is-exact' : '') + '" data-addcart-callback="FRCS_added">' +
+    return '<div class="frcs-item' + (exact ? ' is-exact' : '') + (cartQty[it.c] ? ' ajaxcart-complete' : '') + '" data-addcart-callback="FRCS_added">' +
       '<a class="frcs-row' + (exact ? ' is-exact' : '') + '" href="' + esc(productUrl(it)) + '" data-idx="' + i + '" role="option" id="frcs-opt-' + i + '">' +
       '<span class="frcs-thumb">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : '') + '</span>' +
       '<span class="frcs-row-main">' +
@@ -1460,7 +1480,7 @@
 
   function cardHtml(it, ms) {
     var img = bigImgUrl(it);
-    return '<article class="frcs-card' + (inStock(it) ? '' : ' is-out') + '" data-addcart-callback="FRCS_added">' +
+    return '<article class="frcs-card' + (inStock(it) ? '' : ' is-out') + (cartQty[it.c] ? ' ajaxcart-complete' : '') + '" data-addcart-callback="FRCS_added">' +
       '<a class="frcs-card-img" href="' + esc(productUrl(it)) + '" data-pid="' + it._i + '" tabindex="-1" aria-hidden="true">' +
       (img ? '<img src="' + esc(img) + '" alt="' + esc(it.n) + '" loading="lazy">' : '') +
       (isSale(it) ? '<span class="frcs-tag">Sale</span>' : '') +
