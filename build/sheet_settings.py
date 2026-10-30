@@ -294,6 +294,10 @@ a{color:var(--navy)} .empty{color:var(--sub)}
 <a class="on" href="https://fiercercsolutions.com/?frcs=on" target="_blank" rel="noopener">&#128994; Turn Preview ON (?frcs=on)</a>
 <a class="off" href="https://fiercercsolutions.com/?frcs=off" target="_blank" rel="noopener">&#9898; Turn Preview OFF (?frcs=off)</a>
 </nav>
+<nav class="actions preview-pair">
+<a class="on" href="https://fiercercsolutions.com/?frcs_owner=1" target="_blank" rel="noopener">&#128274; Keep this browser out of the search log</a>
+<a class="off" href="https://fiercercsolutions.com/?frcs_owner=0" target="_blank" rel="noopener">&#128275; Count this browser in the search log again</a>
+</nav>
 <nav class="actions">
 <a href="''' + e(sheet_url) + '''" target="_blank" rel="noopener">Open Settings Sheet</a>
 ''' + (('<a href="' + e(log_sheet_url) + '" target="_blank" rel="noopener">Open Private Search Log</a>\n') if log_sheet_url else '') + '''</nav></section>

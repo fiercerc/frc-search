@@ -28,6 +28,12 @@ Leave the theme's old FusionBot markup alone at first: the new search uses its `
 
 Search log: `build/google_apps_script_logger.gs` runs in the settings spreadsheet's Apps Script and saves searches to a separate PRIVATE spreadsheet ("FRC Search Log (private)"). Emails and long numbers are removed in the browser and again in the script; the public summary it serves has counts per term only. Update steps are at the top of that file. `log_url` in `settings.json` is the Web App URL; optional `log_sheet_url` adds an Open Private Search Log button to the control panel.
 
+## Search quality notes
+
+- **Part-number prefixes show their brand.** `tkr` shows every Tekno RC part, `asc` Team Associated, `hbs` HB Racing, `jco`/`jc` JConcepts, `mug` Mugen Seiki (and `muge`, `mugb`, `mugc` list those part numbers), and so on. The prefixes are worked out from the product list each time it loads (a prefix counts when nearly every part starting with it is one brand's, so there is nothing to maintain). Letters that are also the start of an ordinary word (`tek` on the way to Tekno, `sk` on the way to skid) are left alone while typing. A narrow sub-line such as `tkrbb` lists just those parts.
+- **Words that match nothing are named.** "tamiya falcon" says *Nothing matched tamiya. Showing falcon.*
+- **Your own browsers stay out of the search log.** Open the store once in each browser with `?frcs_owner=1` (the control panel has a button); `?frcs_owner=0` undoes it.
+
 ## Files
 
 | Path | What it is |

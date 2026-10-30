@@ -228,6 +228,62 @@
       }
     });
 
+    // Part-number prefixes that belong to one brand (tkr = Tekno RC, asc = Team Associated, jco = JConcepts).
+    // Typing the prefix shows that brand. A prefix only counts when nearly every part that starts with it is
+    // that brand's, it covers a real share of the brand, and it is not already a word used for something else.
+    this.brandCodes = Object.create(null);
+    this.skuRuns = Object.create(null); // the letters real part numbers start with: tkr, asc, muge
+    (function () {
+      var tally = Object.create(null), size = [];
+      self.items.forEach(function (it) {
+        if (it.b == null) return;
+        size[it.b] = (size[it.b] || 0) + 1;
+        var m = String(it.s || '').toLowerCase().match(/^[a-z]+/);
+        if (!m) return;
+        self.skuRuns[m[0]] = 1;
+        var run = m[0].slice(0, 5);
+        for (var n = 2; n <= run.length; n++) {
+          var p = run.slice(0, n), t = tally[p] || (tally[p] = { all: 0, by: Object.create(null) });
+          t.all++;
+          t.by[it.b] = (t.by[it.b] || 0) + 1;
+        }
+      });
+      var found = [];
+      Object.keys(tally).forEach(function (p) {
+        var t = tally[p];
+        Object.keys(t.by).forEach(function (b) {
+          if (t.by[b] / t.all >= 0.95 && t.by[b] >= Math.max(4, 0.15 * size[b])) found.push([p, +b]);
+        });
+      });
+      // Letters that are the start of a real word ("tek" -> tekno, "sk" -> skid) are left to the normal typing
+      // suggestions, so a prefix only takes over when no ordinary word starts with it.
+      // The exception: a prefix that is just the start of the brand's own name (muge -> Mugen) is fine.
+      var startsWord = Object.create(null);
+      Object.keys(self.post).forEach(function (w) {
+        if (!/^[a-z]{3,}$/.test(w)) return;
+        for (var n = 2; n < Math.min(w.length, 6); n++) (startsWord[w.slice(0, n)] = startsWord[w.slice(0, n)] || []).push(w);
+      });
+      found.sort(function (x, y) { return x[0].length - y[0].length; });
+      found.forEach(function (f) {
+        var p = f[0], b = f[1], post = self.post[p];
+        var own = brandTokCache[b] || [];
+        if (startsWord[p] && startsWord[p].some(function (w) { return own.indexOf(w) < 0 && own.indexOf(stem(w)) < 0; })) return;
+        if (post) { // already a word somewhere: only fine if it only appears on this brand's own products
+          for (var d in post) if (self.items[+d].b !== b) return;
+        }
+        // A narrower sub-line of a brand that already has a shorter prefix adds nothing (lfre when lfr is there).
+        for (var n = 2; n < p.length; n++) {
+          var q = p.slice(0, n);
+          if (self.brandCodes[q] === b && tally[p].by[b] < 0.9 * tally[q].by[b]) return;
+        }
+        self.brandCodes[p] = b;
+      });
+      self.items.forEach(function (it, doc) {
+        if (it.b == null) return;
+        Object.keys(self.brandCodes).forEach(function (p) { if (self.brandCodes[p] === it.b) add(p, doc, FIELD.BRAND); });
+      });
+    })();
+
     this.N = N;
     this.vocab = Object.keys(this.post).sort();
     this.alphaVocab = this.vocab.filter(function (t) { return /^[a-z]{3,}$/.test(t); });
@@ -331,12 +387,17 @@
     var exact = out.length > 0;
     // Part numbers also match their variants: tkr5070 -> tkr5070a, tkr5070hd.
     var partLike = hasDigit && /[a-z]/.test(s) && s.length >= 5;
-    if ((isLast && typing && s.length >= 1) || (!exact && s.length >= 3) || partLike) {
+    // A brand's part-number prefix (tkr) shows the brand, not an arbitrary handful of its part numbers.
+    var isCode = this.brandCodes[s] !== undefined && exact;
+    if (!isCode && ((isLast && typing && s.length >= 1) || (!exact && s.length >= 3) || partLike)) {
       var limit = hasDigit ? 400 : 60;
       var typingLast = (isLast && typing) || partLike;
-      this.prefixMatches(raw, typingLast ? limit : 400).forEach(function (t) {
-        if (!hasDigit && !typingLast && /\d/.test(t)) return;
-        if (out.length > limit) return;
+      var nWord = 0, nSku = 0;
+      this.prefixMatches(raw, typingLast ? 900 : 900).forEach(function (t) {
+        var isSku = !!self.skuExact[t];
+        if (!hasDigit && !typingLast && /\d/.test(t) && !isSku) return;
+        if (isSku) { if (nSku++ >= 900) return; }
+        else if (nWord++ >= limit) return;
         push(t, typingLast ? 0.85 : 0.7, 'prefix');
       });
     }
@@ -527,13 +588,15 @@
     var exactDocs = this.skuExact[cq] || [];
     var qn = parsed.P.replace(/[^a-z0-9.\/]+/g, ' ').replace(/\brc\b/g, ' ').replace(/\s+/g, ' ').trim();
     var kitIntent = /\bkits?\b/.test(qn);
+    // A brand's prefix lists the brand: cars and kits first, then in stock, then newest. No bonus for names that merely mention the prefix.
+    var codeQuery = terms.length === 1 && this.brandCodes[cq] !== undefined;
     var items = this.items;
     var hits = [];
     scores.forEach(function (v, d) {
       var it = items[d];
       var s = v.s;
       if (v.nameAll) s *= 1.25;
-      if (qn.length > 2 && it._name.indexOf(' ' + qn) >= 0) s += 25 + (it._name.lastIndexOf(' ' + qn, 0) === 0 ? 10 : 0);
+      if (!codeQuery && qn.length > 2 && it._name.indexOf(' ' + qn) >= 0) s += 25 + (it._name.lastIndexOf(' ' + qn, 0) === 0 ? 10 : 0);
       if (kitIntent && (it.f & 1)) s += 60;
       else if ((it.f & 1) && v.nameAll) s += 70;
       else if (it.f & 1) s += 3;
@@ -553,6 +616,23 @@
       var pinned = pin.map(function (d) { return items[d]; });
       res.hits = pinned.concat(res.hits.filter(function (it) { return pinned.indexOf(it) < 0; }));
       res.pinned = pinned.length;
+    }
+
+    // Words that matched nothing at all (tamiya in "tamiya falcon"), so the notice can name them.
+    if (res.partial) {
+      var gone = [], kept = [];
+      terms.forEach(function (t, i) { (maps[i].size ? kept : gone).push(t.raw); });
+      if (gone.length && kept.length) { res.dropped = gone.slice(0, 3); res.usedWords = kept.slice(0, 4); }
+    }
+    // The whole search is one brand's part-number prefix.
+    if (terms.length === 1 && this.brandCodes[cq] !== undefined && res.hits.length) {
+      res.brandCode = { code: cq.toUpperCase(), brand: this.brands[this.brandCodes[cq]], isPrefix: !!this.skuRuns[cq] };
+    }
+
+    // "ag" then Enter: a short single word with no match is treated as a start-of-word, like it is while typing.
+    if (!res.hits.length && !opts.typing && terms.length === 1 && cq.length >= 2 && !res.go) {
+      var again = this.search(q, { typing: true });
+      if (again.hits.length) return again;
     }
 
     var ex = this.skuExact[cq];
@@ -634,8 +714,19 @@
     return s.slice(0, max || 80);
   }
   var GA_LOG_EVENT = { dropdown: 'search_typed', sheet: 'search_typed', waiting_list: 'waiting_list_click' };
+  // The owner's own browsers are kept out of the search log: open the store once with ?frcs_owner=1 (?frcs_owner=0 undoes it).
+  function isOwner() {
+    try { return root.localStorage.getItem('frcs-owner') === '1'; } catch (e) { return false; }
+  }
+  function readOwnerFlag() {
+    try {
+      var m = String(root.location && root.location.search || '').match(/[?&]frcs_owner=(1|0)\b/);
+      if (m) root.localStorage.setItem('frcs-owner', m[1]);
+    } catch (e) { }
+  }
   function commitLog(q, total, inStock, source, detail) {
     try {
+      if (isOwner()) return;
       q = redact(q, 80);
       if (!q) return;
       if (total == null) {
@@ -673,7 +764,7 @@
       var now = activeInput ? String(activeInput.value || '').trim() : q;
       if (now.length > q.length && now.toLowerCase().indexOf(q.toLowerCase()) === 0) return;
       if (!engine) return;
-      var res = engine.search(q);
+      var res = engine.search(q, { typing: true }); // the same results the shopper saw while typing
       commitLog(q, res.hits.length, countInStock(res.hits), (sheet && !sheet.hidden) ? 'sheet' : 'dropdown', '');
     }, 1200);
   }
@@ -1138,7 +1229,9 @@
       res.hits.length.toLocaleString() + (res.hits.length === 1 ? ' match' : ' matches') + '</span></div>';
     var notice = '';
     if (res.corrected) notice = '<div class="frcs-notice">Showing results for <b>' + esc(res.corrected) + '</b></div>';
+    else if (res.dropped && !res.pinned) notice = '<div class="frcs-notice">Nothing matched <b>' + esc(res.dropped.join(' ')) + '</b>. Showing <b>' + esc(res.usedWords.join(' ')) + '</b>.</div>';
     else if (res.partial && !res.pinned) notice = '<div class="frcs-notice">No exact match. Showing close matches.</div>';
+    else if (res.brandCode) notice = '<div class="frcs-notice">' + (res.brandCode.isPrefix ? '<b>' + esc(res.brandCode.code) + '</b> is the part-number prefix for <b>' + esc(res.brandCode.brand) + '</b>' : 'Showing all <b>' + esc(res.brandCode.brand) + '</b> parts') + '</div>';
 
     var list = rows.map(function (it, i) { return rowHtml(it, i, ms, it === exact); }).join('');
 
@@ -1691,7 +1784,9 @@
       '<div class="frcs-rp-meta"><span class="frcs-rp-count">' + filtered.length.toLocaleString() + '</span> ' +
       (filtered.length === 1 ? 'product' : 'products') + (filtered.length !== total ? ' <span class="frcs-rp-of">of ' + total.toLocaleString() + '</span>' : '') + '</div>' +
       (res.corrected ? '<div class="frcs-rp-note">Showing results for <b>' + esc(res.corrected) + '</b>. No exact matches for “' + esc(s.q) + '”.</div>' : '') +
-      (res.partial && !res.pinned ? '<div class="frcs-rp-note">No product matched every word. These are the closest matches.</div>' : '') +
+      (res.dropped && !res.pinned ? '<div class="frcs-rp-note">Nothing matched <b>' + esc(res.dropped.join(' ')) + '</b>, so these are results for <b>' + esc(res.usedWords.join(' ')) + '</b>.</div>' : '') +
+      (res.partial && !res.dropped && !res.pinned ? '<div class="frcs-rp-note">No product matched every word. These are the closest matches.</div>' : '') +
+      (res.brandCode && !res.corrected ? '<div class="frcs-rp-note">' + (res.brandCode.isPrefix ? '<b>' + esc(res.brandCode.code) + '</b> is the part-number prefix for <b>' + esc(res.brandCode.brand) + '</b>. Showing all of its parts.' : 'Showing all <b>' + esc(res.brandCode.brand) + '</b> parts.') + '</div>' : '') +
       (res.go ? '<a class="frcs-go" style="margin-top:12px;display:inline-flex" href="' + esc(res.go.u) + '">' + ICON.arrow + '<span>' + esc(res.go.t || 'Go to the ' + s.q + ' page') + '</span></a>' : '') +
       '</header>';
 
@@ -1892,6 +1987,7 @@
   }
 
   function init(opts) {
+    readOwnerFlag();
     CFG = Object.assign({}, DEFAULTS, root.FRCS_CONFIG || {}, opts || {});
     injectCss();
     injectFonts();
