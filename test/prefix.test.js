@@ -14,6 +14,7 @@ for (let i = 1; i <= 5; i++) add('SK' + (100 + i), 'Sticky Kicks Skid Plate Guar
 for (let i = 1; i <= 5; i++) add('AVI' + (500 + i), 'Avid Bearing Kit ' + i, 5);
 add('LFRE3032', 'Leadfinger Body for Mugen', 6); add('LFRE3033', 'Leadfinger Body 2', 6); add('LFRN2001', 'Leadfinger Body 3', 6); add('LFRN2002', 'Leadfinger Body 4', 6);
 add('FALCON1', 'Falcon Wing Mount', 5, 0);
+brands.push('PT Racing RC Oil'); add('PTOSHOCKOIL550CST', 'PT RC Racing Shock Oil 4 OZ Bottle 550 CST', 8); add('PTOSHOCKOIL525CST', 'PT RC Racing Shock Oil 4 OZ Bottle 525 CST', 8);
 add('TKR9401', 'Tekno RC NT48 2.2 1/8th 4WD Competition Nitro Truggy Kit', 0);
 add('TKR9402', 'Tekno RC NT48 2.2 Exhaust Pipe', 0);
 for (let i = 1; i <= 5; i++) add('AG' + (60 + i), 'Agama Oil Seal Cap ' + i, 7);
@@ -63,6 +64,11 @@ check('platform and version typed together (nt482.2) means nt48 2.2', !r.dropped
 check('agamann finds Agama', E.search('agamann').hits.length === count(7) && !!E.search('agamann').corrected);
 check('stray letter in front (lpipe) finds pipe', E.search('lpipe').hits.length === 1);
 check('normal search has no dropped words', !E.search('tekno shock').dropped);
+// Letters and numbers typed together
+check('pt550 (no space) finds the same part as pt 550', E.search('pt550').hits.length === 1 && /550 CST/.test(E.search('pt550').hits[0].n) && E.search('pt550').corrected === 'pt 550');
+check('550cst still works', E.search('550cst').hits.length === 1);
+check('a normal part number is not rewritten', E.search('tkr6001').hits.length === 1 && !E.search('tkr6001').corrected);
+check('nonsense with a number still finds nothing', E.search('asdf123').hits.length === 0 && E.search('xyz999').hits.length === 0);
 // A short word then Enter behaves like typing it
 check('short word submitted shows matches', E.search('av').hits.length === count(5));
 console.log(fail ? fail + ' failing' : 'all passing');

@@ -528,7 +528,20 @@
     return best;
   };
 
+  // Letters and numbers typed run together (pt550, 550cst) when nothing matches as typed: try them apart (pt 550).
+  // Only taken when every word then matches, so nonsense does not turn into loose partial results.
   Engine.prototype.search = function (q, opts) {
+    var res = this.searchOnce(q, opts);
+    if (res.hits.length || !q) return res;
+    var sq = String(q).replace(/([a-z])(?=\d)|(\d)(?=[a-z])/gi, '$1$2 ').replace(/\s+/g, ' ').trim();
+    if (sq.toLowerCase() === String(q).trim().toLowerCase()) return res;
+    var r2 = this.searchOnce(sq, opts);
+    if (!r2.hits.length || r2.partial) return res;
+    r2.q = q; r2.go = res.go; r2.corrected = sq.toLowerCase();
+    return r2;
+  };
+
+  Engine.prototype.searchOnce = function (q, opts) {
     opts = opts || {};
     var res = { q: q, hits: [], exactSku: null, corrected: null, partial: false, terms: [] };
     var cq = compact(q);
@@ -642,7 +655,7 @@
 
     // "ag" then Enter: a short single word with no match is treated as a start-of-word, like it is while typing.
     if (!res.hits.length && !opts.typing && terms.length === 1 && cq.length >= 2 && !res.go) {
-      var again = this.search(q, { typing: true });
+      var again = this.searchOnce(q, { typing: true });
       if (again.hits.length) return again;
     }
 
@@ -681,7 +694,7 @@
     spa: false,
     phone: '708-737-7615',
     hours: 'M–F 8am–5pm CST',
-    contactUrl: '/contact_us.asp',
+    contactUrl: '/contact-us.html',
     popular: ['Tekno', 'EB48 2.2', 'NB48 2.2', 'EB410', 'Bearings', 'Servo', 'Hobbywing', 'Mugen', 'B7', 'Gens Ace'],
     perPage: 24,
     dropdownMax: 7,
