@@ -31,6 +31,8 @@ Search log: `build/google_apps_script_logger.gs` runs in the settings spreadshee
 ## Search quality notes
 
 - **Part-number prefixes show their brand.** `tkr` shows every Tekno RC part, `asc` Team Associated, `hbs` HB Racing, `jco`/`jc` JConcepts, `mug` Mugen Seiki (and `muge`, `mugb`, `mugc` list those part numbers), and so on. The prefixes are worked out from the product list each time it loads (a prefix counts when nearly every part starting with it is one brand's, so there is nothing to maintain). Letters that are also the start of an ordinary word (`tek` on the way to Tekno, `sk` on the way to skid) are left alone while typing. A narrow sub-line such as `tkrbb` lists just those parts.
+- **Every brand answers to its name run together.** `prracing`, `teamassociated`, `dragraceconcepts`, `proline` all show that brand's parts (worked out from the brand names, nothing to maintain). Letters and numbers typed together (`pt550`) are retried apart (`pt 550`) when nothing matches as typed, and part numbers are found with or without the space (`tkr6252`, `tkr 6252`, `f 85047-43`).
+- **A check runs before every publish.** `test/brand_sweep.js` types every brand's name as listed, run together and hyphenated, and fails the update if any brand's parts do not show. It also tries one-letter typos and reports how many miss (it does not fail on those; the misses left are slips inside two-letter codes such as `de`, `tq`, `pr`, where the intended brand is a guess).
 - **Words that match nothing are named.** "tamiya falcon" says *Nothing matched tamiya. Showing falcon.*
 - **Your own browsers stay out of the search log.** Open the store once in each browser with `?frcs_owner=1` (the control panel has a button); `?frcs_owner=0` undoes it.
 

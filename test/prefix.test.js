@@ -15,6 +15,10 @@ for (let i = 1; i <= 5; i++) add('AVI' + (500 + i), 'Avid Bearing Kit ' + i, 5);
 add('LFRE3032', 'Leadfinger Body for Mugen', 6); add('LFRE3033', 'Leadfinger Body 2', 6); add('LFRN2001', 'Leadfinger Body 3', 6); add('LFRN2002', 'Leadfinger Body 4', 6);
 add('FALCON1', 'Falcon Wing Mount', 5, 0);
 add('VRP4H1.9V3TEK', 'VRP Pistons XV3 4 Hole 1.9mm for Tekno', 0); add('F85047-43', 'Futaba Servo Gear Set', 0);
+brands.push('PR Racing'); brands.push('HB Racing');
+const prB = brands.indexOf('PR Racing'), hbB = brands.indexOf('HB Racing');
+for (let i = 1; i <= 7; i++) add('PRR' + (100 + i), 'PR Racing Shock O-Ring ' + i, prB);
+for (let i = 1; i <= 25; i++) add('HBS' + (200 + i), 'HB Racing Race Part ' + i, hbB);
 brands.push('PT Racing RC Oil'); add('PTOSHOCKOIL550CST', 'PT RC Racing Shock Oil 4 OZ Bottle 550 CST', 8); add('PTOSHOCKOIL525CST', 'PT RC Racing Shock Oil 4 OZ Bottle 525 CST', 8);
 add('TKR9401', 'Tekno RC NT48 2.2 1/8th 4WD Competition Nitro Truggy Kit', 0);
 add('TKR9402', 'Tekno RC NT48 2.2 Exhaust Pipe', 0);
@@ -72,6 +76,13 @@ check('a normal part number is not rewritten', E.search('tkr6001').hits.length =
 check('a part number with a dot in it finds itself (vrp4h1.9v3tek)', E.search('vrp4h1.9v3tek').hits.length === 1 && E.search('vrp4h19v3tek').hits.length === 1);
 check('a hyphenated part number typed with a space (f 85047-43)', E.search('f 85047-43').hits.length >= 1 && E.search('f 85047-43').hits[0].s === 'F85047-43');
 check('nonsense with a number still finds nothing', E.search('asdf123').hits.length === 0 && E.search('xyz999').hits.length === 0);
+// Every brand answers to its name run together, and a typo in it is forgiven
+const prCount = items.filter((i) => i.b === prB).length;
+check('prracing (brand name run together) shows PR Racing, not all Racing', E.search('prracing').hits.length === prCount && E.search('prracing').hits.every((h) => h.b === prB));
+check('pr racing and pr-racing show the same', E.search('pr racing').hits.length === prCount && E.search('pr-racing').hits.length === prCount);
+check('prracng (typo) still finds PR Racing', E.search('prracng').hits.length === prCount && E.search('prracng').corrected === 'PR Racing');
+check('stickkicks finds Sticky Kicks', E.search('stickkicks').hits.length === count(4));
+check('first two letters swapped (etknorc) still finds Tekno', E.search('etknorc').hits.length > 0 && brandOf(E.search('etknorc')).indexOf('Tekno RC') === 0);
 // A short word then Enter behaves like typing it
 check('short word submitted shows matches', E.search('av').hits.length === count(5));
 console.log(fail ? fail + ' failing' : 'all passing');

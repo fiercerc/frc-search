@@ -54,6 +54,7 @@ jobs:
           node test/engine.test.js
           node test/prefix.test.js
           node test/verify_index.js site/frc-index.js
+          node test/brand_sweep.js site/frc-index.js
 
       - uses: actions/configure-pages@v5
 

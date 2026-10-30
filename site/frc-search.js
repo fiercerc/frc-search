@@ -194,6 +194,9 @@
       var toks = textTokens(b);
       var al = BRAND_ALIASES[String(b).toLowerCase()];
       if (al) al.forEach(function (a) { toks.push(stem(a)); });
+      // Every brand also answers to its name run together (prracing, teamassociated, dragraceconcepts, proline).
+      var run = compact(b);
+      if (run.length >= 4 && toks.indexOf(run) < 0) { toks.push(run); if (!self.surface[run]) self.surface[run] = b; }
       return toks;
     });
 
@@ -371,7 +374,7 @@
       var lim = max;
       if (w.length >= 4 && t.length > w.length && ((t.length - w.length <= 2 && t.lastIndexOf(w, 0) === 0) || (t.length - w.length === 1 && t.slice(1) === w))) lim = Math.max(max, t.length - w.length);
       if (Math.abs(w.length - t.length) > lim) continue;
-      if (w[0] !== t[0] && lim < 2 && w[1] !== t[1] && t.slice(1) !== w) continue; // cheap first-letter guard
+      if (w[0] !== t[0] && lim < 2 && w[1] !== t[1] && t.slice(1) !== w && !(w[0] === t[1] && w[1] === t[0])) continue; // cheap first-letter guard (first two letters swapped still passes)
       var d = damerau(t, w, lim);
       if (d <= lim) cands.push({ tok: w, d: d });
     }
@@ -463,6 +466,11 @@
             if (!best || sc > best.sc) best = { a: a, b: b, sc: sc, label: raw.slice(0, k) + ' ' + raw.slice(k) };
           }
         }
+      }
+      if (best) {
+        var pa = self.post[best.a], pb = self.post[best.b], both = false;
+        if (pa && pb) for (var dd in pa) { if (pb[dd]) { both = true; break; } }
+        if (!both) best = null;
       }
       var info = self.candidates(hy && self.df[hy] ? hy : raw, isLast, typing, { noFuzzy: !!best });
       if (info.cands.length) alts.push([info.cands]);
