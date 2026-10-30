@@ -366,10 +366,14 @@
     var cands = [], df = this.df;
     for (var i = 0; i < this.alphaVocab.length; i++) {
       var w = this.alphaVocab[i];
-      if (Math.abs(w.length - t.length) > max || w === t) continue;
-      if (w[0] !== t[0] && max < 2 && w[1] !== t[1]) continue; // cheap first-letter guard
-      var d = damerau(t, w, max);
-      if (d <= max) cands.push({ tok: w, d: d });
+      if (w === t) continue;
+      // A real word with up to two stray letters on the end ("agamann" = agama) or one in front ("lpipe" = pipe).
+      var lim = max;
+      if (w.length >= 4 && t.length > w.length && ((t.length - w.length <= 2 && t.lastIndexOf(w, 0) === 0) || (t.length - w.length === 1 && t.slice(1) === w))) lim = Math.max(max, t.length - w.length);
+      if (Math.abs(w.length - t.length) > lim) continue;
+      if (w[0] !== t[0] && lim < 2 && w[1] !== t[1] && t.slice(1) !== w) continue; // cheap first-letter guard
+      var d = damerau(t, w, lim);
+      if (d <= lim) cands.push({ tok: w, d: d });
     }
     cands.sort(function (a, b) { return a.d - b.d || df[b.tok] - df[a.tok]; });
     return cands.slice(0, 4);
@@ -434,6 +438,13 @@
       else raws.push(t);
     });
     var endsWithSpace = /\s$/.test(String(q));
+    // Platform and version typed run together: nt482.2 -> nt48 2.2, sct4102.0 -> sct410 2.0
+    var self0 = this;
+    raws = raws.reduce(function (acc, t) {
+      var m = !self0.df[stem(t)] && t.match(/^([a-z]{2,4}(?:48|410))(\d\.\d+)$/);
+      if (m) acc.push(m[1], m[2]); else acc.push(t);
+      return acc;
+    }, []);
     var kept = raws.filter(function (t) { return !STOP[t]; });
     if (kept.length > 1) kept = kept.filter(function (t) { return t !== 'rc'; });
     if (!kept.length) kept = raws;

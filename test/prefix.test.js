@@ -1,6 +1,6 @@
 // Part-number prefixes show their brand (tkr -> Tekno RC), and words that match nothing are named.
 const S = require('../site/frc-search.js');
-const brands = ['Tekno RC', 'Team Associated', 'Mugen Seiki', 'Tekin', 'Sticky Kicks', 'Avid', 'Leadfinger'];
+const brands = ['Tekno RC', 'Team Associated', 'Mugen Seiki', 'Tekin', 'Sticky Kicks', 'Avid', 'Leadfinger', 'Agama'];
 const items = [];
 let c = 1;
 const add = (sku, name, b, q = 1) => items.push({ c: c++, s: sku, n: name, b, k: [], p: 9.99, r: 9.99, q });
@@ -14,6 +14,9 @@ for (let i = 1; i <= 5; i++) add('SK' + (100 + i), 'Sticky Kicks Skid Plate Guar
 for (let i = 1; i <= 5; i++) add('AVI' + (500 + i), 'Avid Bearing Kit ' + i, 5);
 add('LFRE3032', 'Leadfinger Body for Mugen', 6); add('LFRE3033', 'Leadfinger Body 2', 6); add('LFRN2001', 'Leadfinger Body 3', 6); add('LFRN2002', 'Leadfinger Body 4', 6);
 add('FALCON1', 'Falcon Wing Mount', 5, 0);
+add('TKR9401', 'Tekno RC NT48 2.2 1/8th 4WD Competition Nitro Truggy Kit', 0);
+add('TKR9402', 'Tekno RC NT48 2.2 Exhaust Pipe', 0);
+for (let i = 1; i <= 5; i++) add('AG' + (60 + i), 'Agama Oil Seal Cap ' + i, 7);
 
 const E = new S.Engine({ brands, cats: [], items });
 const brandOf = (r) => [...new Set(r.hits.map((h) => brands[h.b]))];
@@ -53,8 +56,12 @@ check('brand notice data for tkr', E.search('tkr').brandCode && E.search('tkr').
 check('no brand notice for a normal word', !E.search('bearing').brandCode);
 r = E.search('tamiya falcon');
 check('unmatched word is named', r.partial && (r.dropped || []).join() === 'tamiya' && (r.usedWords || []).join() === 'falcon' && r.hits.length === 1);
+r = E.search('tekno zzqx9');
+check('a word that matches nothing is named, rest still searched', (r.dropped || []).join() === 'zzqx9' && r.hits.length === count(0));
 r = E.search('tekno NT482.2');
-check('typo that matches nothing is named, rest still searched', (r.dropped || []).join() === 'nt482.2' && r.hits.length === count(0));
+check('platform and version typed together (nt482.2) means nt48 2.2', !r.dropped && r.hits.length > 0 && /NT48 2\.2/.test(r.hits[0].n));
+check('agamann finds Agama', E.search('agamann').hits.length === count(7) && !!E.search('agamann').corrected);
+check('stray letter in front (lpipe) finds pipe', E.search('lpipe').hits.length === 1);
 check('normal search has no dropped words', !E.search('tekno shock').dropped);
 // A short word then Enter behaves like typing it
 check('short word submitted shows matches', E.search('av').hits.length === count(5));
