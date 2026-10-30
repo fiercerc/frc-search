@@ -19,6 +19,10 @@ brands.push('PR Racing'); brands.push('HB Racing');
 const prB = brands.indexOf('PR Racing'), hbB = brands.indexOf('HB Racing');
 for (let i = 1; i <= 7; i++) add('PRR' + (100 + i), 'PR Racing Shock O-Ring ' + i, prB);
 for (let i = 1; i <= 25; i++) add('HBS' + (200 + i), 'HB Racing Race Part ' + i, hbB);
+brands.push('Gens Ace'); brands.push('Pro-Line');
+const gaB = brands.indexOf('Gens Ace'), plB = brands.indexOf('Pro-Line');
+for (let i = 1; i <= 5; i++) add('GA-R-140C-' + (5000 + i), 'Gens Ace Redline 2.0 Series ' + (5000 + i) + 'mAh 2S1P 7.4V HardCase LiPo Battery', gaB);
+add('PRO6325-14', 'Pro-Line RC Body Paint - Mars Red Oxide', plB); add('PRO6327-06', 'Pro-Line RC Body Paint - Pearl Red', plB);
 brands.push('PT Racing RC Oil'); add('PTOSHOCKOIL550CST', 'PT RC Racing Shock Oil 4 OZ Bottle 550 CST', 8); add('PTOSHOCKOIL525CST', 'PT RC Racing Shock Oil 4 OZ Bottle 525 CST', 8);
 add('TKR9401', 'Tekno RC NT48 2.2 1/8th 4WD Competition Nitro Truggy Kit', 0);
 add('TKR9402', 'Tekno RC NT48 2.2 Exhaust Pipe', 0);
@@ -83,6 +87,10 @@ check('pr racing and pr-racing show the same', E.search('pr racing').hits.length
 check('prracng (typo) still finds PR Racing', E.search('prracng').hits.length === prCount && E.search('prracng').corrected === 'PR Racing');
 check('stickkicks finds Sticky Kicks', E.search('stickkicks').hits.length === count(4));
 check('first two letters swapped (etknorc) still finds Tekno', E.search('etknorc').hits.length > 0 && brandOf(E.search('etknorc')).indexOf('Tekno RC') === 0);
+// Two words that spell one word in the catalog: red line = redline
+const rl = E.search('red line');
+check('red line puts the Redline batteries first', rl.hits.length === 7 && rl.hits.slice(0, 5).every((h) => /Redline/.test(h.n)));
+check('redline and red line list the same batteries first', E.search('redline').hits.length === 5 && E.search('redline').hits.every((h) => /Redline/.test(h.n)));
 // A short word then Enter behaves like typing it
 check('short word submitted shows matches', E.search('av').hits.length === count(5));
 console.log(fail ? fail + ' failing' : 'all passing');

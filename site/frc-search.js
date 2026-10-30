@@ -490,8 +490,10 @@
         var tok = self.df[j] ? j : stem(j);
         var crossed = [];
         if (!self.skuExact[tok]) {
+          // The words matched separately still count, but less than the one word they spell together (red line: redline beats Pro-Line paint in red).
+          var soft = function (sub) { return sub.map(function (c) { return { tok: c.tok, q: c.q * 0.35, kind: c.kind, cap: c.cap }; }); };
           terms[i].alts.forEach(function (A) {
-            terms[i + 1].alts.forEach(function (B) { crossed.push(A.concat(B)); });
+            terms[i + 1].alts.forEach(function (B) { crossed.push(A.concat(B).map(soft)); });
           });
         }
         terms.splice(i, 2, {
@@ -624,6 +626,12 @@
     var exactDocs = this.skuExact[cq] || [];
     var qn = parsed.P.replace(/[^a-z0-9.\/]+/g, ' ').replace(/\brc\b/g, ' ').replace(/\s+/g, ' ').trim();
     var kitIntent = /\bkits?\b/.test(qn);
+    // Two or more words that together spell one word in the catalog (red line = redline, hobby wing = hobbywing).
+    var joinedWord = null;
+    if (/^[a-z ]+$/.test(qn) && qn.indexOf(' ') > 0) {
+      var jw = qn.replace(/ /g, '');
+      if (jw.length >= 5 && (this.df[jw] || this.df[stem(jw)]) && !this.skuExact[jw]) joinedWord = jw;
+    }
     // A brand's prefix lists the brand: cars and kits first, then in stock, then newest. No bonus for names that merely mention the prefix.
     var codeQuery = terms.length === 1 && this.brandCodes[cq] !== undefined;
     var items = this.items;
@@ -633,6 +641,7 @@
       var s = v.s;
       if (v.nameAll) s *= 1.25;
       if (!codeQuery && qn.length > 2 && it._name.indexOf(' ' + qn) >= 0) s += 25 + (it._name.lastIndexOf(' ' + qn, 0) === 0 ? 10 : 0);
+      else if (joinedWord && it._name.indexOf(' ' + joinedWord) >= 0) s += 25; // "red line" is the one word redline: parts named that rank with exact phrases
       if (kitIntent && (it.f & 1)) s += 60;
       else if ((it.f & 1) && v.nameAll) s += 70;
       else if (it.f & 1) s += 3;
