@@ -477,6 +477,7 @@
     // join neighbours that exist as one word: hobby wing -> hobbywing, tkr 5070 -> tkr5070
     for (var i = 0; i < terms.length - 1; i++) {
       var j = terms[i].raw + terms[i + 1].raw;
+      if (!self.df[j] && !self.df[stem(j)] && j.indexOf('-') >= 0) j = j.replace(/-/g, ''); // f 85047-43 -> f8504743
       if (self.df[j] || self.df[stem(j)]) {
         var tok = self.df[j] ? j : stem(j);
         var crossed = [];
@@ -599,6 +600,9 @@
       });
       tally.forEach(function (v, d) { if (v.matched >= need && (v.bits & (1 << must))) scores.set(d, v); });
     }
+
+    // A full part number typed with its dots in it (vrp4h1.9v3tek) is an exact match even when its words do not index that way.
+    if (!scores.size && this.skuExact[cq]) this.skuExact[cq].forEach(function (d) { scores.set(d, { s: 1, nameAll: false, matched: terms.length }); });
 
     // Auto-correct notice when a word only matched through a spelling fix.
     var fixed = false;
