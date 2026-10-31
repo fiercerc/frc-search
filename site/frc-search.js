@@ -92,8 +92,7 @@
       t.split('-').forEach(function (p) { if (p) out.push(p); });
     }
     var m = t.match(/^([a-z]+\d+)\.\d+$/); // eb410.2 -> eb410
-    if (m) out.push(m[1]);
-    var lp = t.match(/^([a-z]+)(\d+)$/);    // nb48 -> 48 (helps "nb 48")
+    if (m) out.push(m[1]);    var lp = t.match(/^([a-z]+)(\d+)$/);    // nb48 -> 48 (helps "nb 48")
     if (lp && lp[1].length <= 4) { out.push(lp[2]); }
     var mc = t.match(/^([a-z]+\d+)([a-z]+\d[a-z0-9.]*)$/); // rc10b74 -> rc10 + b74, rc8b3.1 -> rc8 + b3.1
     if (mc) { out.push(mc[1]); variants(mc[2], out); }
@@ -289,6 +288,15 @@
 
     this.N = N;
     this.vocab = Object.keys(this.post).sort();
+    // Versions as shoppers type them, without the platform: 84.1 is the b84.1 kits (b84.1, b84.1d), 410.3 is sct410.3 and et410.3,
+    // 74.2d is b74.2d. Kept apart from the word list so it never changes what a plain number matches.
+    this.ver = Object.create(null);
+    this.vocab.forEach(function (t) {
+      var vm = t.match(/^[a-z]{1,4}(\d+\.\d+)([a-z]{0,2})$/);
+      if (!vm) return;
+      (self.ver[vm[1]] = self.ver[vm[1]] || []).push(t);
+      if (vm[2]) (self.ver[vm[1] + vm[2]] = self.ver[vm[1] + vm[2]] || []).push(t);
+    });
     this.alphaVocab = this.vocab.filter(function (t) { return /^[a-z]{3,}$/.test(t); });
     this.setup(data.cfg || {});
   }
@@ -392,6 +400,7 @@
     (this.syn[s] || []).forEach(function (x) { push(stem(x), 0.9, 'syn'); });
     var hasDigit = /\d/.test(s);
     var exact = out.length > 0;
+    (this.ver[s] || []).forEach(function (x) { push(x, 0.9, 'version'); });
     // Part numbers also match their variants: tkr5070 -> tkr5070a, tkr5070hd.
     var partLike = hasDigit && /[a-z]/.test(s) && s.length >= 5;
     // A brand's part-number prefix (tkr) shows the brand, not an arbitrary handful of its part numbers.
@@ -428,7 +437,7 @@
     if (ref) {
       var cap = this.idf(ref.tok);
       // Longer words that merely start with what was typed (eb48 -> eb48.3) never outrank the exact word.
-      out.forEach(function (c) { if (c.kind === 'syn' || c.kind === 'fuzzy' || (exact && c.kind === 'prefix')) c.cap = cap; });
+      out.forEach(function (c) { if (c.kind === 'syn' || c.kind === 'fuzzy' || c.kind === 'version' || (exact && c.kind === 'prefix')) c.cap = cap; });
     }
     return { cands: out, exact: exact, fuzzy: fuzzyUsed, stemmed: s, self: self };
   };
@@ -444,6 +453,8 @@
     // Platform and version typed run together: nt482.2 -> nt48 2.2, sct4102.0 -> sct410 2.0
     var self0 = this;
     raws = raws.reduce(function (acc, t) {
+      // A dot between two words (pit.mat) is a space; part numbers with dots between digits (1.9) are left alone.
+      if (/[a-z]\.[a-z]/.test(t) && !self0.df[stem(t)]) { t.split('.').forEach(function (p) { if (p) acc.push(p); }); return acc; }
       var m = !self0.df[stem(t)] && t.match(/^([a-z]{2,4}(?:48|410))(\d\.\d+)$/);
       if (m) acc.push(m[1], m[2]); else acc.push(t);
       return acc;
@@ -546,6 +557,30 @@
     if (res.hits.length || !q) return res;
     var sq = String(q).replace(/([a-z])(?=\d)|(\d)(?=[a-z])/gi, '$1$2 ').replace(/\s+/g, ' ').trim();
     if (sq.toLowerCase() === String(q).trim().toLowerCase()) return res;
+    // A number and a word typed together (1800se): the number is often a spec that is not in the product name (1800KV) and the
+    // word is the model (Fusion SE). When the number matches nothing but the word matches on its own, show the word's products
+    // and say what did not match. Exact words only, so a short word does not turn into a pile of loose prefix matches.
+    var exactOpts = {};
+    for (var key in opts) exactOpts[key] = opts[key];
+    exactOpts.typing = false;
+    var r3 = this.searchOnce(sq, exactOpts);
+    if (r3.partial && r3.hits.length && r3.hits.length <= 60) {
+      var numTerms = [], wordTerms = [];
+      r3.terms.forEach(function (t) { (/^\d+$/.test(t.raw) ? numTerms : wordTerms).push(t); });
+      if (numTerms.length && wordTerms.length && numTerms.every(function (t) { return !t.exact; }) && wordTerms.every(function (t) { return t.exact && t.raw.length >= 2; })) {
+        var used = wordTerms.map(function (t) { return t.raw; });
+        // The word has to be in the product's name (not only in its extra search text), so a stray match does not tag along.
+        r3.hits = r3.hits.filter(function (it) {
+          return used.every(function (w) { return it._name.indexOf(' ' + w + ' ') >= 0 || it._name.indexOf(' ' + w + 's ') >= 0; });
+        });
+        if (r3.hits.length) {
+          r3.q = q; r3.go = res.go;
+          r3.dropped = numTerms.map(function (t) { return t.raw; });
+          r3.usedWords = used;
+          return r3;
+        }
+      }
+    }
     var r2 = this.searchOnce(sq, opts);
     if (!r2.hits.length || r2.partial) return res;
     r2.q = q; r2.go = res.go; r2.corrected = sq.toLowerCase();

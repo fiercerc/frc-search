@@ -27,6 +27,14 @@ const items = [
   { c: 14, s: 'TKR9508', n: 'Tekno RC T-Chassis (4mm, black ano, SCT410 2.0)', b: 0, k: [2], p: 79.99, r: 89.99, q: 3 },
   { c: 15, s: 'JCO5293-1', m: '5293-1', n: 'JConcepts Razor 1/8th Buggy Body', b: 8, k: [], p: 44.99, r: 44.99, q: 2 },
   { c: 16, s: 'TKR6554B', n: 'Tekno RC Sway Bar Set (FRONT, 1.5, 1.6, 1.7, 1.8, 1.9, EB/NB48 2.x)', b: 0, k: [1], p: 24.99, r: 24.99, q: 1 },
+  // Kit names with a version in them, a model that is only a suffix, and a name with a dot between two words (from real missed searches).
+  { c: 17, s: 'ASC90058', n: 'Team Associated RC10B84.1 Team Kit', b: 1, k: [0], p: 599.99, r: 599.99, q: 2, f: 1 },
+  { c: 18, s: 'ASC90059', n: 'Team Associated RC10B84.1D Team Kit', b: 1, k: [0], p: 599.99, r: 599.99, q: 1, f: 1 },
+  { c: 19, s: 'ASC90045', n: 'Team Associated RC10B74.2D CE Team Kit', b: 1, k: [0], p: 549.99, r: 549.99, q: 0, f: 1 },
+  { c: 20, s: 'ASC92310', n: 'Team Associated RC10B74.2 Rear Gearbox', b: 1, k: [1], p: 29.99, r: 29.99, q: 3 },
+  { c: 21, s: 'HWA3040431', n: 'Hobbywing QuicRun Fusion SE (2in1 FOC system)', b: 5, k: [6], p: 89.99, r: 89.99, q: 0, a: 'Hobbywing QUICRUN Fusion SE 2in1 FOC system' },
+  { c: 22, s: 'TKR5548', n: 'Tekno RC Decal Sheet (SCT410.3)', b: 0, k: [1], p: 9.99, r: 9.99, q: 4 },
+  { c: 23, s: 'TKR1121', n: 'Tekno RC Pit Mat (large, black)', b: 0, k: [3], p: 39.99, r: 39.99, q: 2 },
 ];
 const E = new S.Engine({ brands, cats, items });
 const names = (r, n = 4) => r.hits.slice(0, n).map(h => h.s);
@@ -52,6 +60,18 @@ const cases = [
   ['1/8 buggy', r => r.hits.some(h => h.s === 'TKR9005')],
   ['bearings', r => r.hits[0].s === 'AVI1234'],
   ['tekin pro2', r => r.hits.length === 0 || r.partial],
+  // A version typed without its platform finds the kits and parts named with it.
+  ['84.1', r => r.hits.length === 2 && r.hits.every(h => /^ASC9005[89]$/.test(h.s))],
+  ['74.2', r => r.hits.length === 2 && r.hits[0].s === 'ASC90045'],
+  ['74.2d', r => r.hits.length === 1 && r.hits[0].s === 'ASC90045'],
+  ['410.3', r => r.hits.length === 1 && r.hits[0].s === 'TKR5548'],
+  ['b84.1', r => r.hits.length === 2],
+  // A number and a model typed together (1800KV + SE): the model's products, with the number named as not matched.
+  ['1800se', r => r.hits.length === 1 && r.hits[0].s === 'HWA3040431' && r.partial && r.dropped && r.dropped.join() === '1800' && r.usedWords.join() === 'se'],
+  ['1800se hobbywing', r => r.hits.length >= 1],
+  ['1800zz', r => r.hits.length === 0],
+  // A dot between two words is a space.
+  ['pit.mat', r => r.hits[0].s === 'TKR1121'],
 ];
 let fail = 0;
 for (const [q, ok] of cases) {
