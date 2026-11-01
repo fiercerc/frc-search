@@ -4,7 +4,7 @@ Site search for fiercercsolutions.com: the instant dropdown, the phone search sc
 
 ## How it runs
 
-- **Every night (about 3:15 AM Central)** the "Update search" job pulls all products from Shift4Shop, rebuilds the product list, checks it, and publishes it.
+- **Every 4 hours** (about 7 AM, 11 AM, 3 PM, 7 PM, 11 PM and 3 AM Central) the "Update search" job pulls all products and stock from Shift4Shop, rebuilds the product list, checks it, and publishes it. Stock on the search is never more than about 4 hours behind the store (Add To Cart is still checked by the store itself). Each run also switches the schedule back on, because GitHub turns scheduled runs off in a public repository after 60 days with no activity.
 - **Run now:** open the **Actions** tab → **Update search** → **Run workflow** → **Run workflow**. Takes about a minute. Use it after adding products or big stock changes.
 - Published files live at `https://fiercerc.github.io/frc-search/` and are loaded by the snippet in Shift4Shop **Settings → Design → Header & Footer → Global Footer**.
 
