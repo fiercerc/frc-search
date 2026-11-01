@@ -38,7 +38,12 @@
   function giveBack() {
     if (!early) return;
     early.target.style.display = '';
-    if (early.mount.parentNode) early.mount.parentNode.removeChild(early.mount);
+    // Say so in plain words and point to the phone and the menu. Styles are inline on purpose: the search's own stylesheet
+    // comes from the same place that just failed. FusionBot's results (if it is still active) show below this note.
+    early.mount.innerHTML = '<div role="alert" style="margin:0 0 24px;padding:20px 22px;border:1px solid #c9ced6;border-left:4px solid #14284b;background:#fff;color:#222;font:15px/1.55 Roboto,Arial,sans-serif">' +
+      '<strong style="display:block;margin-bottom:4px;font-size:17px">Search is taking a break.</strong>' +
+      'We are working on it. Use the categories and manufacturers in the menu, or call <b>708-737-7615</b> (M–F 8am–5pm CST) and we will find your part. ' +
+      '<a href="/contact-us.html" style="color:#14284b;font-weight:700">Send us the part you need</a>.</div>';
     early = null;
   }
   claimResults();
@@ -61,7 +66,7 @@
     };
     s.onerror = giveBack;
     document.body.appendChild(s);
-    // Safety net: if the new results never appear, show FusionBot's again.
+    // Safety net: if the new results never appear, say so (and show FusionBot's results again if it is still active).
     setTimeout(function () { if (early && early.mount.querySelector('[data-frcs-wait]')) giveBack(); }, 15000);
   }
   if (document.readyState === 'complete') swap();
