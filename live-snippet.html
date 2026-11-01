@@ -22,6 +22,9 @@
     Array.prototype.forEach.call(document.getElementsByTagName('span'), function (el) {
       if (/^\s*FusionBot Search Results\s*$/.test(el.textContent)) el.textContent = 'Search Results';
     });
+    // FusionBot's "loading" spinner never goes away once FusionBot is cancelled, so it is hidden here.
+    var spin = document.getElementById('fbSpinner');
+    if (spin) spin.style.display = 'none';
     if (early) return;
     var fb = document.getElementById('fusionbot-content');
     if (!fb || document.getElementById('frcs-results')) return;

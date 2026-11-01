@@ -24,6 +24,8 @@ If the job ever fails, the last good version stays live. Nothing breaks on the s
 
 ## After FusionBot is cancelled
 
+**FusionBot was cancelled on Nov 1, 2026** (its login no longer works). Its leftover "loading" spinner (`#fbSpinner`) is hidden by the snippet in the Global Footer, and its coupon redirect was copied to the Shortcuts tab (coupon, discount code: see /fierce-rc-solutions-coupon-codes.html). Its admin user ("John From FusionBot") should be removed from Shift4Shop's Administrator Access page.
+
 Leave the theme's old FusionBot markup alone at first: the new search uses its `#searchBox` and `#fusionbot-content` containers as mount points. Re-check the search page after cancelling. Comment out the old `<!--START:fbquicksearch-->` … `<!--END:fbquicksearch-->` block in `frame.html` only after that check.
 
 Search log: `build/google_apps_script_logger.gs` runs in the settings spreadsheet's Apps Script and saves searches to a separate PRIVATE spreadsheet ("FRC Search Log (private)"). Emails and long numbers are removed in the browser and again in the script; the public summary it serves has counts per term only. Update steps are at the top of that file. `log_url` in `settings.json` is the Web App URL; optional `log_sheet_url` adds an Open Private Search Log button to the control panel.
