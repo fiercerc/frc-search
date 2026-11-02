@@ -442,6 +442,23 @@
     return { cands: out, exact: exact, fuzzy: fuzzyUsed, stemmed: s, self: self };
   };
 
+  // A part number whose letters were mistyped (acs91803 for asc91803, as91803 or tk5070): the letters are one step off
+  // letters real part numbers start with, and the corrected number is a real part number or the start of one.
+  // Nothing changes when the typed text is already a word or the start of a part number, or when two prefixes fit.
+  Engine.prototype.fixPartPrefix = function (letters, rest) {
+    var whole = letters + rest;
+    if (this.skuRuns[letters] || this.df[stem(whole)] || this.skuExact[whole] || this.prefixMatches(whole, 1).length) return null;
+    var hit = [], exact = [];
+    for (var run in this.skuRuns) {
+      if (run === letters || Math.abs(run.length - letters.length) > 1 || damerau(letters, run, 1) > 1) continue;
+      var full = run + rest;
+      if (this.skuExact[full]) exact.push(run);
+      else if (rest.length >= 3 && this.prefixMatches(full, 1).length) hit.push(run);
+    }
+    if (exact.length === 1) return exact[0];
+    return !exact.length && hit.length === 1 ? hit[0] : null;
+  };
+
   Engine.prototype.parse = function (q, typing) {
     var P = prep(q);
     var raws = [];
@@ -459,6 +476,19 @@
       if (m) acc.push(m[1], m[2]); else acc.push(t);
       return acc;
     }, []);
+    // Letters mistyped at the front of a part number: acs91803 / acs 91803 -> asc91803.
+    var partFixed = {};
+    raws = (function () {
+      var out = [];
+      for (var pi = 0; pi < raws.length; pi++) {
+        var pt = raws[pi], pm = pt.match(/^([a-z]{2,5})(\d[a-z0-9.\-]*)$/), pair = false;
+        if (!pm && /^[a-z]{2,4}$/.test(pt) && raws[pi + 1] && /^\d[a-z0-9.\-]*$/.test(raws[pi + 1])) { pm = [pt + raws[pi + 1], pt, raws[pi + 1]]; pair = true; }
+        var run = pm ? self0.fixPartPrefix(pm[1], pm[2]) : null;
+        if (run) { var fx = run + pm[2]; partFixed[fx] = true; out.push(fx); if (pair) pi++; }
+        else out.push(pt);
+      }
+      return out;
+    })();
     var kept = raws.filter(function (t) { return !STOP[t]; });
     if (kept.length > 1) kept = kept.filter(function (t) { return t !== 'rc'; });
     if (!kept.length) kept = raws;
@@ -491,7 +521,7 @@
         var sub = parts.map(function (p) { return self.candidates(p, false, false).cands; });
         if (sub.every(function (c) { return c.length; })) alts.push(sub);
       }
-      terms.push({ raw: raw, alts: alts, exact: info.exact || !!best, fuzzy: info.fuzzy, stemmed: info.stemmed, split: best ? best.label : null });
+      terms.push({ raw: raw, alts: alts, exact: info.exact || !!best, fuzzy: info.fuzzy, stemmed: info.stemmed, split: best ? best.label : null, partFixed: !!partFixed[raw] });
     });
     // join neighbours that exist as one word: hobby wing -> hobbywing, tkr 5070 -> tkr5070
     for (var i = 0; i < terms.length - 1; i++) {
@@ -653,6 +683,7 @@
     var fixed = false;
     var corr = terms.map(function (t) {
       if (t.split) { fixed = true; return t.split; }
+      if (t.partFixed) { fixed = true; return String(t.raw).toUpperCase(); }
       if (!t.exact && t.fuzzy && !/\d/.test(t.raw)) { fixed = true; return self.surface[t.fuzzy] || t.fuzzy; }
       return t.raw;
     });

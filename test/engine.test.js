@@ -66,6 +66,13 @@ const cases = [
   ['74.2d', r => r.hits.length === 1 && r.hits[0].s === 'ASC90045'],
   ['410.3', r => r.hits.length === 1 && r.hits[0].s === 'TKR5548'],
   ['b84.1', r => r.hits.length === 2],
+  // Letters mistyped at the front of a part number (from a real search: acs91803 for asc91803).
+  ['acs90058', r => r.hits.length === 1 && r.hits[0].s === 'ASC90058' && r.corrected === 'ASC90058'],
+  ['acs 90058', r => r.hits.length === 1 && r.hits[0].s === 'ASC90058' && r.corrected === 'ASC90058'],
+  ['as90058', r => r.hits.length === 1 && r.hits[0].s === 'ASC90058'],
+  ['tk5070', r => r.hits[0].s === 'TKR5070' && r.corrected === 'TKR5070'],
+  ['zzz90058', r => r.hits.length === 0 && !r.corrected],
+  ['asc90058', r => r.hits[0].s === 'ASC90058' && !r.corrected],
   // A number and a model typed together (1800KV + SE): the model's products, with the number named as not matched.
   ['1800se', r => r.hits.length === 1 && r.hits[0].s === 'HWA3040431' && r.partial && r.dropped && r.dropped.join() === '1800' && r.usedWords.join() === 'se'],
   ['1800se hobbywing', r => r.hits.length >= 1],
